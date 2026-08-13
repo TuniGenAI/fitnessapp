@@ -225,7 +225,7 @@ export function SettingsPage() {
         )}
       </section>
 
-      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.3.1</p>
+      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.4.0</p>
     </div>
   );
 }

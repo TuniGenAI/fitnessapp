@@ -37,6 +37,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => localStorage.getItem(DEMO_FLAG) === "1",
   );
 
+  // Sync the data layer with auth DURING RENDER, not in an effect. React runs
+  // child effects before parent effects, so if this were an effect, a child
+  // provider (ProfileProvider) would load its data before the session id was
+  // registered — reading as "signed out" and making saved data look missing on
+  // every reload. Doing it in render guarantees the id is set before any child
+  // load effect fires. setSessionState just writes module vars, so it's safe.
+  setSessionState(session, demo);
+
   useEffect(() => {
     if (!supabase) {
       // No backend configured yet — resolve immediately into demo-capable state.
@@ -52,12 +60,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
     return () => sub.subscription.unsubscribe();
   }, []);
-
-  // Keep the (context-free) data layer in sync with auth so feature apis can
-  // decide backend-vs-demo synchronously on every call.
-  useEffect(() => {
-    setSessionState(session, demo);
-  }, [session, demo]);
 
   const value = useMemo<AuthState>(() => {
     const user = session?.user ?? null;
