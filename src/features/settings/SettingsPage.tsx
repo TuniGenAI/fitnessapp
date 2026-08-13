@@ -2,7 +2,6 @@ import { useState } from "react";
 import { APP_NAME } from "@/appConfig";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useProfile } from "@/features/profile/ProfileProvider";
-import { diagnoseProfilePersistence } from "@/features/profile/api";
 import { useTheme, type Theme } from "@/lib/theme";
 import { Segmented, Button } from "@/components/ui";
 import type { CoachMode, WeightUnit, VolumeUnit } from "@/types";
@@ -15,8 +14,6 @@ export function SettingsPage() {
   const [keyInput, setKeyInput] = useState("");
   const [savedKey, setSavedKey] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
-  const [diag, setDiag] = useState<string | null>(null);
-  const [diagBusy, setDiagBusy] = useState(false);
   const hasKey = Boolean(profile?.gemini_api_key);
 
   return (
@@ -191,41 +188,7 @@ export function SettingsPage() {
         </ul>
       </section>
 
-      {/* Diagnostics — temporary, to pin down the save/persistence issue */}
-      <section className="card p-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Diagnostics</h2>
-        <p className="mt-1 mb-3 text-xs text-muted">
-          Runs a save self-test against the backend and shows exactly where a value is lost.
-        </p>
-        <Button
-          variant="subtle"
-          block
-          disabled={diagBusy}
-          onClick={async () => {
-            setDiagBusy(true);
-            setDiag(null);
-            try {
-              setDiag(await diagnoseProfilePersistence());
-            } catch (e) {
-              setDiag(`Diagnostic crashed: ${(e as Error).message ?? String(e)}`);
-            } finally {
-              setDiagBusy(false);
-            }
-          }}
-        >
-          {diagBusy ? "Running…" : "Diagnose saving"}
-        </Button>
-        {diag && (
-          <pre
-            className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl p-3 text-[11px] leading-relaxed"
-            style={{ background: "var(--color-surface-2)" }}
-          >
-            {diag}
-          </pre>
-        )}
-      </section>
-
-      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.4.0</p>
+      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.5.0</p>
     </div>
   );
 }

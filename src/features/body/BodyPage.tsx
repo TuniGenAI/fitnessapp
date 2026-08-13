@@ -126,18 +126,6 @@ export function BodyPage() {
         </>
       )}
 
-      {/* Honest sync note (PRD §9) */}
-      <section className="card p-4" style={{ borderColor: "var(--color-line)" }}>
-        <p className="text-xs text-muted">
-          <span className="font-semibold" style={{ color: "var(--color-brand-soft)" }}>
-            Why manual entry?
-          </span>{" "}
-          iPhone + a home-screen web app can't read your Xiaomi scale over Bluetooth
-          directly. For now you enter numbers from the scale's app — quick and reliable.
-          A future native app / Apple Shortcuts bridge could auto-forward these (see PRD §9).
-        </p>
-      </section>
-
       {adding && (
         <WeighInSheet
           unit={unit}
