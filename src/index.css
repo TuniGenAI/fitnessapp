@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ *
+ * Design tokens — a playful, energetic fitness theme.
+ * Dark-first (the app defaults to dark). Colors are exposed to Tailwind
+ * via @theme so utilities like `bg-brand`, `text-protein` just work.
+ * ------------------------------------------------------------------ */
+@theme {
+  /* Brand — energetic violet→indigo */
+  --color-brand: #7c5cff;
+  --color-brand-strong: #6344ff;
+  --color-brand-soft: #a996ff;
+
+  /* Accent — electric lime for "go / success / PR" moments */
+  --color-accent: #b6ff3c;
+  --color-accent-strong: #9be400;
+
+  /* Macro ring colors */
+  --color-protein: #ff5d8f; /* pink */
+  --color-carbs: #ffb020; /* amber */
+  --color-fat: #35d0ba; /* teal */
+  --color-water: #37b6ff; /* sky */
+  --color-calories: #7c5cff; /* brand */
+
+  /* Motivation */
+  --color-flame: #ff7a1a;
+
+  /* Surfaces (dark) */
+  --color-ink: #0b0f1a; /* app background */
+  --color-surface: #131a2a; /* card */
+  --color-surface-2: #1b2438; /* raised card */
+  --color-line: #263149; /* borders */
+  --color-muted: #8a97b1; /* secondary text */
+
+  --radius-card: 1.25rem;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Light theme overrides */
+:root.light {
+  --color-ink: #f5f7fb;
+  --color-surface: #ffffff;
+  --color-surface-2: #f0f3fa;
+  --color-line: #e2e8f5;
+  --color-muted: #5b6780;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-ink);
+  color: #eef2fb;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  /* Respect iPhone safe areas (notch / home indicator) for the installed PWA */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+:root.light body {
+  color: #0e1524;
+}
+
+/* Prevent pull-to-refresh / overscroll bounce feeling un-app-like */
+html {
+  overscroll-behavior-y: none;
+}
+
+/* Reusable component-ish classes */
+@layer components {
+  .card {
+    background-color: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+  }
+  .card-2 {
+    background-color: var(--color-surface-2);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-card);
+  }
+  .text-muted {
+    color: var(--color-muted);
+  }
+}

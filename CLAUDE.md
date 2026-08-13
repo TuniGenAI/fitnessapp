@@ -1,0 +1,194 @@
+# CLAUDE.md — Project Guide
+
+This file is the home base for building and maintaining the Fitness App. It's written so that **someone who doesn't code** can still follow what's going on, and so that **Claude** (the AI assistant doing the building) always knows the plan, the conventions, and the setup steps.
+
+> **Companion docs:** [`PRD.md`](./PRD.md) = *what* we're building and why. [`TASKS.md`](./TASKS.md) = the ordered checklist for the first build. **This file** = *how* it's built and set up.
+
+---
+
+## 0. START HERE (for a fresh conversation)
+
+**If you're an AI assistant opening this project cold to start building, do this in order:**
+1. Read **this file** (stack, architecture, conventions, setup).
+2. Read [`PRD.md`](./PRD.md) (requirements — the source of truth for *what* to build).
+3. Read [`TASKS.md`](./TASKS.md) and **begin at Milestone 0**, top to bottom.
+4. Steps marked **(you)** in TASKS.md need the owner to create a free account or paste a key — pause and guide them in plain language when you hit one.
+
+These three files contain the complete plan. No prior conversation is needed to begin.
+
+**App name:** intentionally **undecided** for now — placeholder is *"Fitness App"*. This does **not** block the build. When scaffolding, put the display name in **one central place** (the PWA manifest `name`/`short_name` in `vite.config.ts` and a single `APP_NAME` constant) so renaming later is a one-line change. Don't scatter the name through the code.
+
+---
+
+## 1. What this project is
+
+A personal fitness **PWA** (a website that installs onto your iPhone home screen like an app) that:
+1. Tracks workouts and pushes progressive overload with an **AI coach**.
+2. Tracks nutrition — calories, macros, water, and supplements.
+
+It's for one user (you) now, built so it can open to others later. It runs entirely on **free tiers ($0/month)**.
+
+---
+
+## 2. The stack, in plain English
+
+Think of the app as three parts: the thing you look at (frontend), the thing that remembers your data (backend), and the smart helper (AI). Here's each piece and *why* it was chosen.
+
+| Piece | Product | What it actually does | Why this one |
+|---|---|---|---|
+| **Frontend** | **React + Vite + TypeScript** | The screens you tap on — dashboard, workout logger, food logger. "React" builds the interface; "Vite" runs/bundles it fast; "TypeScript" catches mistakes early. | Industry standard, huge community, easy for AI to build reliably, one codebase for web + phone. |
+| **Styling** | **Tailwind CSS** | How it looks — colors, spacing, the playful rings and cards. | Fast to build a polished, consistent look without fighting CSS. |
+| **App-on-phone** | **PWA** (`vite-plugin-pwa`) | Makes the website installable to your iPhone home screen and gives it an app-like feel. | No App Store needed; one build works everywhere. |
+| **Charts** | **Recharts** | Draws your progress graphs and macro rings. | Simple, looks good, works in React. |
+| **Celebrations** | a confetti library | The PR party moment. | Tiny, fun, motivating. |
+| **Barcode** | a camera scanner lib (e.g. `@zxing/browser`) | Reads food barcodes with your phone camera. | Works in iPhone Safari over HTTPS. |
+| **Backend** | **Supabase** | Remembers everything: your account, workouts, food, supplements, photos — and syncs across devices. It's a database + login system + file storage + small server functions, all in one. | Generous free tier, built-in Google login, secure per-user data, and "edge functions" to safely call the AI. This is also the **API-first backbone** a future native app could reuse. |
+| **Login** | **Supabase Auth (Google)** | "Sign in with Google." | One tap, no passwords to manage. |
+| **AI coach + food photos** | **Gemini** (Google) free tier | Writes your workout briefings/recaps and reads food photos to estimate macros. | Genuinely free within limits; the user already used it successfully. |
+| **Food database** | **Open Food Facts** | The library we search for foods and barcodes. | Free, open, huge, no API key needed. |
+| **Hosting** | **Vercel** (frontend) + Supabase (backend) | Puts the app on the internet at a URL. | Free tier, connects to the code, auto-deploys. |
+
+**Total cost for one user: $0/month.**
+
+---
+
+## 3. How the parts talk to each other
+
+```
+   ┌─────────────────────────────┐
+   │   Your iPhone / Browser     │
+   │   (React PWA, installed)    │
+   └───────────────┬─────────────┘
+                   │  reads/writes your data (securely, per-user)
+                   ▼
+   ┌─────────────────────────────┐        ┌──────────────────────────┐
+   │        Supabase             │        │   Open Food Facts        │
+   │  • Postgres database        │◄──────►│   (food search + barcode)│
+   │  • Google auth              │        └──────────────────────────┘
+   │  • File storage (photos)    │
+   │  • Edge Functions ──────────┼──────► ┌──────────────────────────┐
+   │       (call the AI safely)  │        │   Gemini API (free)      │
+   └─────────────────────────────┘        │   coach text + photo→macros
+                                          └──────────────────────────┘
+```
+
+**Key rule — API-first:** the frontend never holds secrets and never talks to Gemini directly. It calls Supabase; a Supabase **edge function** holds the logic and talks to Gemini. This keeps the API key off the phone and means a future **native iOS app** can call the exact same backend.
+
+---
+
+## 4. Repo structure (planned)
+
+```
+Fitness App/
+├── PRD.md                  # what & why
+├── CLAUDE.md               # this file — how & setup
+├── TASKS.md                # ordered build checklist
+├── .env.local              # your secret keys (never committed) — see §6
+├── index.html
+├── package.json
+├── vite.config.ts
+├── supabase/
+│   ├── migrations/         # database schema (tables, security rules)
+│   └── functions/          # edge functions (e.g. coach, food-photo)
+└── src/
+    ├── main.tsx            # app entry
+    ├── App.tsx             # routes
+    ├── lib/                # supabase client, gemini calls, helpers
+    ├── features/
+    │   ├── workouts/       # program builder, logger, history, PRs
+    │   ├── coach/          # AI briefing/recap/reactions
+    │   ├── nutrition/      # food search, barcode, photo, meals, water
+    │   ├── supplements/    # stack + daily checklist
+    │   ├── body/           # weigh-ins + trend
+    │   └── dashboard/      # Today view, weekly strip, charts, celebrations
+    ├── components/         # shared UI (buttons, rings, cards)
+    └── types/              # shared TypeScript types
+```
+
+---
+
+## 5. Conventions
+
+- **TypeScript everywhere**; shared types in `src/types`.
+- **Feature folders** — code grouped by feature (above), not by file type.
+- **Units:** store canonical (kg, ml, grams) in the database; convert for display per user setting.
+- **Dates:** store as ISO in UTC; display in the user's local time.
+- **Security:** every table has **row-level security** so a user only ever sees their own rows. No secret keys in frontend code — ever.
+- **Graceful AI degradation:** every AI feature has a non-AI fallback (e.g. rule-based target suggestion) so the app is fully usable without a Gemini key.
+- **Keep the core loop fast:** logging a set or a meal should be 1–2 taps. Guard this in every UI decision.
+- **Docs stay current:** when a feature ships or a decision changes, update PRD.md / this file / TASKS.md in the same change.
+
+---
+
+## 6. First-time setup (step by step, no experience assumed)
+
+Do these once. Each creates a free account or key. Claude will run the code commands; you do the account clicks.
+
+### 6.1 Install the tools on your computer
+- Install **Node.js** (LTS version) from nodejs.org — this lets the app run.
+- (Optional) Install **Git** if you want version history.
+
+### 6.2 Create the backend (Supabase)
+1. Go to **supabase.com** → sign up (free) → **New project**. Pick a name and a strong database password (save it).
+2. In the project, open **Project Settings → API**. Copy the **Project URL** and the **anon public key** — you'll paste these into `.env.local` (step 6.5).
+3. Open **Authentication → Providers → Google** and enable it (Supabase shows the exact steps; it involves creating a free Google OAuth credential — Claude will guide you when we reach that task).
+
+### 6.3 Get a free Gemini key
+1. Go to **Google AI Studio** (aistudio.google.com) → **Get API key** → create one (free).
+2. Keep it handy. In the app you'll paste it into **Settings** (it's stored per-user and used server-side). For local testing it can also go in `.env.local`.
+
+### 6.4 Get the code running
+From the project folder, Claude will run:
+```bash
+npm install
+npm run dev
+```
+Then open the URL it prints (usually `http://localhost:5173`).
+
+### 6.5 Secret keys file (`.env.local`)
+Create a file named `.env.local` in the project root (Claude will scaffold it). It holds:
+```
+VITE_SUPABASE_URL=...        # from step 6.2
+VITE_SUPABASE_ANON_KEY=...   # from step 6.2
+```
+**Never share or commit this file.** The Gemini key lives in the app's Settings (per-user), not here, in normal use.
+
+### 6.6 Put it online (Vercel)
+1. Go to **vercel.com** → sign up (free) → import the project.
+2. Add the same environment variables from `.env.local` in Vercel's settings.
+3. Deploy. Vercel gives you a URL. Open it on your iPhone in Safari → **Share → Add to Home Screen** to "install" the app.
+
+---
+
+## 7. How the AI coach is wired
+
+- **Where it runs:** a **Supabase edge function** (server-side). The frontend sends it "here's today's plan + recent relevant sets," the function builds a prompt, calls **Gemini**, and returns text. The **API key never touches the browser.**
+- **What it sees (token-frugal):** only the last few sessions for *today's* exercises, plus goals and current bodyweight — not the whole history. This keeps it fast and well within the free tier.
+- **Two moments:**
+  - **Pre-workout:** returns (a) target weight×reps per exercise to pre-fill the logger, and (b) a short motivational briefing.
+  - **In-workout:** based on the user's per-session choice — either a quick **reaction after each set**, or a single **end-of-workout recap**.
+- **Fallback:** if no key/quota, a **rule-based suggester** still provides targets ("hit all target reps last time → +2.5kg or +1 rep"). The app never blocks on the AI.
+- **Supplements:** the coach sees them only through the macro totals + adherence; it gives gentle nudges, not timing instructions.
+
+---
+
+## 8. How Claude should work in this repo
+
+- **Follow the build order in [`TASKS.md`](./TASKS.md).** It's sequenced so the app is runnable early and each step builds on a working base.
+- **Explain as you go.** The owner doesn't code — when you make a meaningful choice or ask them to click something (create an account, paste a key), say what and why in plain language.
+- **Verify before claiming done.** Run the app (`npm run dev`), click the actual feature, and confirm it works. If something fails, say so with the error — don't paper over it.
+- **Keep secrets safe.** Never put the Gemini key or Supabase service key in frontend code or commit `.env.local`.
+- **Protect the core loop.** If a change would add taps to logging a set or meal, flag it.
+- **Update docs in the same change** when features land or decisions shift.
+- **Respect the constraints in PRD §9.** Don't promise auto scale-sync on iPhone/PWA; use manual entry + the documented future paths.
+
+---
+
+## 9. Quick reference
+
+- **Product spec / requirements:** [`PRD.md`](./PRD.md)
+- **Build checklist:** [`TASKS.md`](./TASKS.md)
+- **Run locally:** `npm run dev`
+- **Free accounts needed:** Supabase, Google (OAuth + Gemini key), Vercel
+- **Monthly cost (1 user):** $0
+- **Biggest known limits:** iPhone+PWA can't auto-read the Xiaomi scale (manual entry for v1); a personal AI subscription can't power the app (Gemini free key instead). See PRD §9.
