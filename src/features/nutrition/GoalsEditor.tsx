@@ -40,6 +40,19 @@ export function GoalsEditor({ open, onClose }: { open: boolean; onClose: () => v
   const { profile } = useProfile();
   const unit = profile?.weight_unit ?? "kg";
   const [mode, setMode] = useState<"calc" | "manual">("calc");
+  const [error, setError] = useState<string | null>(null);
+
+  // Save, closing only on success and surfacing any backend error instead of
+  // silently failing (which looked like "goals don't save").
+  async function save(patch: Parameters<typeof updateGoals>[0]) {
+    setError(null);
+    try {
+      await updateGoals(patch);
+      onClose();
+    } catch (e) {
+      setError((e as Error).message ?? String(e));
+    }
+  }
 
   return (
     <Sheet open={open} onClose={onClose} title="Nutrition goals">
@@ -51,21 +64,25 @@ export function GoalsEditor({ open, onClose }: { open: boolean; onClose: () => v
           { value: "manual", label: "Manual" },
         ]}
       />
+      {error && (
+        <p className="mt-3 text-xs" style={{ color: "var(--color-protein)" }}>
+          Couldn’t save: {error}
+        </p>
+      )}
       <div className="mt-4">
         {mode === "calc" ? (
           <Calculator
             unit={unit}
-            onSave={async (t) => {
-              await updateGoals({
+            onSave={(t) =>
+              save({
                 source: "calculated",
                 goal_type: t.goal_type,
                 calorie_target: t.calories,
                 protein_target_g: t.protein_g,
                 carbs_target_g: t.carbs_g,
                 fat_target_g: t.fat_g,
-              });
-              onClose();
-            }}
+              })
+            }
           />
         ) : (
           <Manual
@@ -76,17 +93,16 @@ export function GoalsEditor({ open, onClose }: { open: boolean; onClose: () => v
               fat_g: goals?.fat_target_g ?? 70,
               water: goals?.water_target_ml ?? 3000,
             }}
-            onSave={async (v) => {
-              await updateGoals({
+            onSave={(v) =>
+              save({
                 source: "manual",
                 calorie_target: v.calories,
                 protein_target_g: v.protein_g,
                 carbs_target_g: v.carbs_g,
                 fat_target_g: v.fat_g,
                 water_target_ml: v.water,
-              });
-              onClose();
-            }}
+              })
+            }
           />
         )}
       </div>

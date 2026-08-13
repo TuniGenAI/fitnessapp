@@ -13,6 +13,7 @@ export function SettingsPage() {
 
   const [keyInput, setKeyInput] = useState("");
   const [savedKey, setSavedKey] = useState(false);
+  const [keyError, setKeyError] = useState<string | null>(null);
   const hasKey = Boolean(profile?.gemini_api_key);
 
   return (
@@ -156,14 +157,24 @@ export function SettingsPage() {
               <Button
                 disabled={!keyInput.trim()}
                 onClick={async () => {
-                  await updateProfile({ gemini_api_key: keyInput.trim() });
-                  setKeyInput("");
-                  setSavedKey(false);
+                  setKeyError(null);
+                  try {
+                    await updateProfile({ gemini_api_key: keyInput.trim() });
+                    setKeyInput("");
+                    setSavedKey(false);
+                  } catch (e) {
+                    setKeyError((e as Error).message ?? String(e));
+                  }
                 }}
               >
                 Save
               </Button>
             </div>
+          )}
+          {keyError && (
+            <p className="mt-2 text-xs" style={{ color: "var(--color-protein)" }}>
+              Couldn’t save: {keyError}
+            </p>
           )}
         </div>
       </section>
@@ -177,7 +188,7 @@ export function SettingsPage() {
         </ul>
       </section>
 
-      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.1.0</p>
+      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.2.0</p>
     </div>
   );
 }
