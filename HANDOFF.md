@@ -48,18 +48,18 @@ Verified live: `auth/v1/health` → 200, anon JWT decodes valid (`role: anon`, m
 `isSupabaseConfigured` now flips true → real Google sign-in activates (once the Google provider is enabled, below).
 > Note: the URL was initially pasted with a trailing `/rest/v1/` — corrected to the bare project origin (supabase-js appends paths itself).
 
-**Still pending (guide next time):**
-- **Google OAuth** — Authentication → Providers → Google. Needs a Google Cloud OAuth client (Client ID + Secret pasted into Supabase; Supabase's callback URL pasted into Google Cloud). ~5 min, walk through step-by-step.
-- **Apply the DB schema** — next conversation generates SQL migration files in `supabase/migrations/`. Default apply path for a non-coder: **paste the SQL into Supabase → SQL Editor → Run** (Claude will give the exact snippet). Optional power path: owner shares a Supabase **access token** + DB password so the Supabase CLI can push automatically.
+**Google OAuth — ✅ DONE & VERIFIED (2026-08-13).** Google Cloud OAuth client created (client_id `376412115-q79f…apps.googleusercontent.com`), enabled in Supabase, callback `…supabase.co/auth/v1/callback`. Supabase URL Configuration set: Site URL = the Vercel domain; Redirect URLs include `https://fitnessapp-mauve-nine.vercel.app/**` and `http://localhost:5173/**`. Verified: authorize endpoint 302s to `accounts.google.com` with the right client_id/callback, and clicking "Continue with Google" on the live site reaches Google's sign-in screen. Consent screen is in **Testing** mode with the owner's Gmail as a test user (no Google verification needed for personal use). *If the deployed domain ever changes, add the new domain to Supabase Redirect URLs.*
 
-### 2. GitHub (owner)
-- Create a new **empty** repo (private is fine, no README/.gitignore — repo already has one). Have the URL ready (e.g. `https://github.com/<you>/fitness-app`).
-- Next conversation: `git init` → commit → push. Push auth via `gh auth login` (interactive) or a Personal Access Token — sorted live.
+**Still pending:**
+- **Apply the DB schema** (Milestone 1's remaining step) — paste the 4 SQL files from `supabase/migrations/` into Supabase → SQL Editor → Run, in order (steps in `supabase/README.md`).
 
-### 3. Vercel (owner, after repo is pushed)
-- New Project → import the GitHub repo → framework preset **Vite**.
-- Add the same two env vars (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`) in Vercel's project settings.
-- Deploy → get the URL → on iPhone Safari: Share → Add to Home Screen.
+### 2. GitHub — ✅ DONE (2026-08-13)
+- Repo: **https://github.com/TuniGenAI/fitnessapp** (private). Remote `origin` set; initial commit `1558f2f` pushed to `main`. Git identity: `TuniGenAI <benfrijaomar@gmail.com>`, credential helper = GCM (cached, no prompt on push).
+- **Git is driven from the infra/setup conversation** to avoid clobbering the parallel dev conversation's working-tree edits. Subsequent commits/pushes auto-deploy to Vercel.
+
+### 3. Vercel — ✅ DONE (2026-08-13)
+- Live at **https://fitnessapp-mauve-nine.vercel.app** (framework preset Vite). Env vars `VITE_SUPABASE_URL` + `VITE_SUPABASE_ANON_KEY` set in the project. Auto-deploys on every push to `main`. First deploy verified: renders, no demo button (Supabase detected), Google handshake works.
+- iPhone: open the URL in Safari → Share → Add to Home Screen to install the PWA.
 
 ### 4. Gemini (owner — keep the key OUT of chat and the repo)
 - The key is **used server-side** (Supabase Edge Function) and/or stored per-user in the app's Settings. **Do NOT paste it into chat, `.env.local`, or commit it.**
@@ -90,5 +90,9 @@ npm run build      # typecheck + production build (must stay green)
 ```
 
 ## Repo state
-- Not yet a git repository (`git init` pending — see GitHub step).
-- `.env.local` present with blank placeholders (git-ignored).
+- Git repo initialized on `main`; remote `origin` → https://github.com/TuniGenAI/fitnessapp; initial commit pushed.
+- `.env.local` present and filled (Supabase URL + anon key); git-ignored.
+- Live deploy: https://fitnessapp-mauve-nine.vercel.app (auto-deploys on push to `main`).
+
+## Milestone 0 — COMPLETE ✅ (2026-08-13)
+Exit check met: app is live at a URL, Google sign-in reaches Google end-to-end, dashboard renders. Remaining owner step before real *data* flows: apply the Milestone 1 SQL (above).

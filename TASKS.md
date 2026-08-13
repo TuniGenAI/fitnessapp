@@ -10,12 +10,11 @@ Ordered so the app is **runnable early** and each step builds on a working base.
 - [x] Scaffold **React + Vite + TypeScript** project; add **Tailwind** (v4).
 - [x] Add **PWA** support (`vite-plugin-pwa`): manifest, generated icons (192/512/maskable + apple-touch), installable on iPhone.
 - [x] Set up base layout (bottom tab nav, safe areas), routing, and a **playful theme** (brand gradient, macro-ring colors, cards) with light/dark toggle.
-- [ ] **(you)** Create **Supabase** project; enable **Google auth**; grab URL + anon key.
-- [~] Wire the **Supabase client**; implement **Google sign-in / sign-out** and a protected app shell. *(Client + auth flow + protected shell built; runs in demo mode until the Supabase keys above are pasted into `.env.local`.)*
-- [ ] **(you)** Create **Vercel** project; connect repo; add env vars; first **deploy**. Install to iPhone home screen and confirm sign-in works there.
+- [x] **(you)** Create **Supabase** project; enable **Google auth**; grab URL + anon key. *(Project live; keys in `.env.local`; Google provider enabled + verified.)*
+- [x] Wire the **Supabase client**; implement **Google sign-in / sign-out** and a protected app shell. *(Live Google OAuth handshake verified to reach accounts.google.com.)*
+- [x] **(you)** Create **Vercel** project; connect repo; add env vars; first **deploy**. *(Live at https://fitnessapp-mauve-nine.vercel.app; repo https://github.com/TuniGenAI/fitnessapp auto-deploys on push. iPhone install: Safari → Share → Add to Home Screen.)*
 
-**Exit check:** you can sign in with Google on phone + web, see an empty dashboard, and it's live at a URL.
-*Progress: app builds, runs locally, and is fully clickable in demo mode (login → dashboard → all tabs). Google sign-in + live deploy are gated on the two **(you)** account steps.*
+**Exit check:** ✅ MET — live at a URL, Google sign-in reaches Google on the deployed site, dashboard renders. *(Real per-user data flows once the Milestone 1 SQL is applied — see Milestone 1.)*
 
 ---
 
