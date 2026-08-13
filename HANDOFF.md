@@ -6,7 +6,26 @@
 
 ## Where we are
 
-**Milestone 0 (Foundations) is code-complete and verified running.** **Milestone 1 (Data foundation) is DONE — schema applied to the live Supabase project and verified (2026-08-13).** The app builds with no type errors, runs locally, and is fully clickable in **demo mode** (no backend needed yet). **Next is Milestone 2 (Workouts).**
+**Milestones 0–7 are code-complete.** M0 (foundations) + M1 (schema, applied live) were done earlier; **M2–M7 (workouts, AI coach, nutrition, supplements, body, dashboard) were built and verified in demo mode on 2026-08-13.** `npm run build` is green (TS + PWA). The app is fully usable end-to-end in **demo mode** (local-first store, no backend needed) and against the live Supabase backend once signed in.
+
+> **Two owner steps remain before the live (signed-in) site has full parity:**
+> 1. **Apply the new `water_logs` migration** — `supabase/migrations/20260813120400_add_water_logs.sql` (paste into the Supabase SQL Editor, same as the M1 files). Without it, water quick-add errors on the *live* site (demo mode is unaffected).
+> 2. **(Optional) AI coach** — deploy the edge function (`supabase functions deploy coach`) and paste a Gemini key in Settings. Until then the coach uses its rule-based fallback (fully functional).
+
+### What M2–M7 added (all local-first: Supabase when signed in, localStorage in demo)
+- **Data layer:** `src/lib/session.ts` (auth→data bridge), `src/lib/localDb.ts` (demo store, seeds exercises + default supplements + goals/profile), `src/lib/repo.ts` (generic backend↔demo CRUD), `src/lib/format.ts` (units/dates/uuid), `src/lib/useAsync.ts`, `src/lib/celebrate.ts` (confetti). Client seeds in `src/data/`.
+- **Profile context:** `src/features/profile/` — loads profile + goals app-wide (units, coach settings, nutrition targets).
+- **UI kit:** `src/components/ui.tsx` (Button, Sheet, Segmented, Stepper, EmptyState, Spinner…) + new icons.
+- **M2 Workouts** (`src/features/workouts/`): program builder + templates, live logger with last-time + rule-based suggestions, PR detection (+confetti), history, per-exercise 1RM chart.
+- **M3 Coach** (`src/features/coach/` + `supabase/functions/coach/`): rule-based briefing/recap/reactions + Gemini edge function (key stays server-side) + graceful fallback.
+- **M4 Nutrition** (`src/features/nutrition/`): TDEE calculator + manual goals, Open Food Facts search + barcode-number lookup, custom foods, saved meals, water, macro rings.
+- **M5 Supplements** (`src/features/supplements/`): stack management, daily checklist, macro contribution, adherence streak.
+- **M6 Body** (`src/features/body/`): weigh-ins, smoothed trend chart, feeds TDEE, honest sync note.
+- **M7 Dashboard** (`src/features/dashboard/`): live rings (food+supps), water, today's session, coach line, weekly strip, supplement checklist.
+
+**Verification (in-browser, demo mode, zero console errors):** built PPL from template → ran a Push session → PR detection fired weight+volume (not reps) with confetti → history/progress correct; TDEE math correct; OFF "banana" search→log updated rings exactly; ticking Whey added +120 kcal/+24 g protein; body weigh-in saved with snapshot; Settings units/coach/key render.
+
+> **Parked (see TASKS.md):** photo→AI macro scan, live camera barcode scanning (needs `@zxing/browser`), muscle-group/adherence-over-time charts, PWA install prompt, recharts code-splitting (bundle ~850 kB).
 
 ### Milestone 1 built (2026-08-13)
 - **Full schema** in `supabase/migrations/` — 4 ordered SQL files covering all 18 tables (profiles, goals, programs/program_days/program_exercises, exercises, workouts/workout_sets, personal_records, foods, meals/meal_items, food_logs, supplement_templates/supplements, supplement_logs, body_metrics, coach_messages).
@@ -67,15 +86,14 @@ Verified live: `auth/v1/health` → 200, anon JWT decodes valid (`role: anon`, m
 
 ---
 
-## Next up: Milestone 2 — Workouts + progressive overload (Goal #1 core)
-With the schema in place, build the workout flow against the typed Supabase client (`src/lib/supabase.ts` → `supabase` typed with `<Database>`; row/insert types in `src/types`):
-- **Program builder** (`src/features/workouts/`): create days (Push/Pull/Legs), add exercises with target sets/reps, offer templates (PPL, Upper/Lower, Full Body). Read the exercise library from the seeded `exercises` table.
-- **Workout logger:** start today's session (`workouts`), log weight×reps per set (`workout_sets`), one-handed friendly.
-- **"Last time" numbers** inline per exercise (query recent `workout_sets`).
-- **Rule-based next-target suggester** (works with no AI): hit all target reps last time → +2.5 kg or +1 rep.
-- **Workout history** + per-exercise view; **PR detection** writing to `personal_records`.
+## Next up (post-M7)
+The Phase-1 feature set is built. Remaining work is **owner verification on the live signed-in site** + the parked polish items:
+1. Apply `water_logs` migration (above); sign in on the deployed site and confirm the `handle_new_user` trigger seeded your profile/goals/5 default supplements (Table Editor).
+2. Run one real session signed in (start a workout, log sets, finish) and confirm rows land in `workouts`/`workout_sets`/`personal_records`; log a food + water; tick a supplement; add a weigh-in.
+3. (Optional) Deploy the `coach` edge function + add a Gemini key to light up AI briefings/recaps.
+4. Then Milestone 8 (ship & verify on installed iPhone PWA) + parked items in TASKS.md.
 
-The backend is live: schema applied + verified, Supabase keys in `.env.local`, Google OAuth working, deployed on Vercel. **No blocking (you) steps remain before Milestone 2** — build straight against the typed client. (First real Google sign-in will fire the `handle_new_user` trigger; a quick Table Editor glance then confirms profile/goals/default-supplements auto-seed.)
+**Architecture note for the next builder:** feature code never talks to a backend directly — it calls each feature's `api.ts`, which uses `@/lib/repo` + `@/lib/session` to hit **Supabase when signed in** and the **local demo store** otherwise. Keep new features on that pattern so demo mode keeps working (it's how the app is verifiable without Google OAuth).
 
 ---
 

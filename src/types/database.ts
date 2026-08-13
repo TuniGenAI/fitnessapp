@@ -28,10 +28,15 @@ export type RecordType = "weight" | "volume" | "reps";
 export type CoachRole = "briefing" | "recap" | "reaction";
 
 // Helper: a table definition with its Row / Insert / Update triple.
+// `Relationships: []` is required for supabase-js to recognize this as a valid
+// table schema — without it, `.insert()`/`.update()` argument types degrade to
+// `never`. We declare no foreign-key relationships to the type system (queries
+// still work); it only affects nested-select typing, which we don't rely on.
 type Table<Row, Insert, Update> = {
   Row: Row;
   Insert: Insert;
   Update: Update;
+  Relationships: [];
 };
 
 export interface Database {
@@ -624,9 +629,31 @@ export interface Database {
           content?: string;
         }
       >;
+
+      water_logs: Table<
+        {
+          id: string;
+          user_id: string;
+          log_date: string;
+          ml: number;
+          created_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          log_date?: string;
+          ml: number;
+          created_at?: string;
+        },
+        {
+          ml?: number;
+          log_date?: string;
+        }
+      >;
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
     Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
   };
 }

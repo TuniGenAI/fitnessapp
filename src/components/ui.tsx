@@ -1,0 +1,260 @@
+/**
+ * Small shared UI kit — buttons, bottom sheet, steppers, segmented control,
+ * headers and empty states. Themed via the CSS tokens in `index.css`.
+ * Reused across workouts / nutrition / body / supplements.
+ */
+import {
+  useEffect,
+  type ButtonHTMLAttributes,
+  type ComponentType,
+  type ReactNode,
+  type SVGProps,
+} from "react";
+import { PlusIcon } from "./icons";
+
+type Variant = "primary" | "subtle" | "ghost" | "danger" | "accent";
+
+const VARIANT_STYLE: Record<Variant, React.CSSProperties> = {
+  primary: {
+    background: "linear-gradient(135deg, var(--color-brand), var(--color-brand-strong))",
+    color: "#fff",
+  },
+  accent: { background: "var(--color-accent)", color: "#0b0f1a" },
+  subtle: { background: "var(--color-surface-2)", color: "inherit" },
+  ghost: { background: "transparent", color: "var(--color-muted)" },
+  danger: { background: "var(--color-surface-2)", color: "var(--color-protein)" },
+};
+
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: Variant;
+  block?: boolean;
+}
+
+export function Button({
+  variant = "primary",
+  block,
+  className = "",
+  style,
+  children,
+  ...rest
+}: ButtonProps) {
+  return (
+    <button
+      {...rest}
+      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 ${
+        block ? "w-full" : ""
+      } ${className}`}
+      style={{ ...VARIANT_STYLE[variant], ...style }}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** Header with an optional icon chip and right-aligned action slot. */
+export function PageHeader({
+  title,
+  Icon,
+  action,
+}: {
+  title: string;
+  Icon?: ComponentType<SVGProps<SVGSVGElement>>;
+  action?: ReactNode;
+}) {
+  return (
+    <header className="flex items-center justify-between gap-3">
+      <div className="flex items-center gap-3">
+        {Icon && (
+          <div
+            className="flex h-11 w-11 items-center justify-center rounded-2xl"
+            style={{ background: "var(--color-surface-2)", color: "var(--color-brand)" }}
+          >
+            <Icon className="h-6 w-6" />
+          </div>
+        )}
+        <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
+      </div>
+      {action}
+    </header>
+  );
+}
+
+/** iOS-style bottom sheet modal. */
+export function Sheet({
+  open,
+  onClose,
+  title,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title?: string;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col justify-end">
+      <div
+        className="absolute inset-0"
+        style={{ background: "rgba(0,0,0,0.5)" }}
+        onClick={onClose}
+      />
+      <div
+        className="relative mx-auto max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-t-[var(--radius-card)] p-4"
+        style={{
+          background: "var(--color-surface)",
+          borderTop: "1px solid var(--color-line)",
+          paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)",
+        }}
+      >
+        <div
+          className="mx-auto mb-3 h-1.5 w-10 rounded-full"
+          style={{ background: "var(--color-line)" }}
+        />
+        {title && <h2 className="mb-3 text-lg font-bold">{title}</h2>}
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Two-or-more option segmented toggle. */
+export function Segmented<T extends string>({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: T; label: string }[];
+  value: T;
+  onChange: (v: T) => void;
+}) {
+  return (
+    <div
+      className="flex gap-1 rounded-xl p-1"
+      style={{ background: "var(--color-surface-2)" }}
+    >
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            onClick={() => onChange(o.value)}
+            className="flex-1 rounded-lg py-2 text-sm font-semibold transition"
+            style={
+              active
+                ? { background: "var(--color-brand)", color: "#fff" }
+                : { color: "var(--color-muted)" }
+            }
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Numeric stepper with tappable − / + and a typeable middle field. */
+export function Stepper({
+  value,
+  onChange,
+  step = 1,
+  min = 0,
+  max = Infinity,
+  suffix,
+  decimals = 0,
+}: {
+  value: number;
+  onChange: (v: number) => void;
+  step?: number;
+  min?: number;
+  max?: number;
+  suffix?: string;
+  decimals?: number;
+}) {
+  const set = (v: number) => onChange(Math.max(min, Math.min(max, v)));
+  return (
+    <div
+      className="flex items-center justify-between gap-1 rounded-xl px-1 py-1"
+      style={{ background: "var(--color-surface-2)" }}
+    >
+      <StepBtn label="−" onClick={() => set(Number((value - step).toFixed(4)))} />
+      <div className="flex items-baseline gap-1">
+        <input
+          inputMode="decimal"
+          value={Number.isFinite(value) ? Number(value.toFixed(decimals)) : 0}
+          onChange={(e) => {
+            const n = Number(e.target.value);
+            if (!Number.isNaN(n)) set(n);
+          }}
+          className="w-16 bg-transparent text-center text-lg font-bold outline-none"
+        />
+        {suffix && <span className="text-xs text-muted">{suffix}</span>}
+      </div>
+      <StepBtn label="+" onClick={() => set(Number((value + step).toFixed(4)))} />
+    </div>
+  );
+}
+
+function StepBtn({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-xl font-bold"
+      style={{ background: "var(--color-surface)", color: "var(--color-brand)" }}
+    >
+      {label}
+    </button>
+  );
+}
+
+export function EmptyState({
+  Icon,
+  title,
+  hint,
+  action,
+}: {
+  Icon?: ComponentType<SVGProps<SVGSVGElement>>;
+  title: string;
+  hint?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="card flex flex-col items-center gap-3 p-8 text-center">
+      {Icon && <Icon className="h-10 w-10" style={{ color: "var(--color-muted)" }} />}
+      <div>
+        <p className="font-semibold">{title}</p>
+        {hint && <p className="mt-1 text-sm text-muted">{hint}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+/** Floating-ish add button row. */
+export function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <Button variant="subtle" block onClick={onClick} style={{ color: "var(--color-brand)" }}>
+      <PlusIcon className="h-4 w-4" />
+      {label}
+    </Button>
+  );
+}
+
+export function Spinner() {
+  return (
+    <div className="flex justify-center py-10">
+      <div
+        className="h-8 w-8 animate-spin rounded-full border-4 border-t-transparent"
+        style={{ borderColor: "var(--color-line)", borderTopColor: "transparent" }}
+      />
+    </div>
+  );
+}

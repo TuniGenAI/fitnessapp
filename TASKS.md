@@ -29,71 +29,71 @@ Ordered so the app is **runnable early** and each step builds on a working base.
 
 ---
 
-## Milestone 2 — Workouts + progressive overload (Goal #1 core)
-- [ ] **Program builder:** create days (e.g. Push/Pull/Legs), add exercises with target sets/reps. Offer **templates** (PPL, Upper/Lower, Full Body) + full customization.
-- [ ] **Workout logger:** start today's workout, log **weight × reps** per set, one-handed friendly.
-- [ ] Show **"last time" numbers** for each exercise inline.
-- [ ] **Rule-based next-target suggester** (fallback that works with no AI).
-- [ ] **Workout history** + per-exercise view.
-- [ ] **PR detection** (weight / volume / reps) writing to personal_records.
+## Milestone 2 — Workouts + progressive overload (Goal #1 core) ✅
+- [x] **Program builder:** create days, add exercises with target sets/reps. **Templates** (PPL, Upper/Lower, Full Body) + full customization. *(`ProgramBuilder.tsx`, `templates.ts`)*
+- [x] **Workout logger:** start today's workout, log **weight × reps** per set, one-handed friendly (big steppers, warm-up flag, ad-hoc exercises). *(`WorkoutLogger.tsx`)*
+- [x] Show **"last time" numbers** for each exercise inline.
+- [x] **Rule-based next-target suggester** (works with no AI). *(`logic.ts` `suggestNextTarget`)*
+- [x] **Workout history** + per-exercise **progress chart** (est. 1RM, recharts). *(`WorkoutHistory.tsx`, `ExerciseProgress.tsx`)*
+- [x] **PR detection** (weight / volume / reps) → personal_records, with **confetti**. *(`logic.ts` `checkPrsForSet`)*
 
-**Exit check:** you can run a full session end-to-end with last-time context and get a target; PRs are detected.
-
----
-
-## Milestone 3 — AI coach (Gemini)
-- [ ] **(you)** Get a free **Gemini API key**; add a **Settings** screen to store it (per-user, server-side).
-- [ ] **Edge function** that builds a token-frugal prompt (today's plan + recent relevant sets + goals) and calls Gemini.
-- [ ] **Pre-workout:** pre-fill targets in the logger **and** show a **conversational briefing**.
-- [ ] **In-workout mode toggle** (per session): **live per-set reactions** *or* **end-of-workout recap**.
-- [ ] Persist coach messages; confirm **graceful fallback** to the rule-based suggester when no key/quota.
-
-**Exit check:** starting a workout produces AI targets + a briefing; recap works; removing the key still lets you train.
+**Exit check:** ✅ MET — verified in browser (demo): built a PPL program from template, ran a Push session, logged sets with last-time context + suggestions, PR detection fired weight+volume (not reps) correctly with confetti, history + progress records reflect the data.
 
 ---
 
-## Milestone 4 — Nutrition (Goal #2 core)
-- [ ] **Goals:** TDEE **calculator** (body stats + cut/bulk/maintain) **and** manual override → daily calorie/macro targets.
-- [ ] **Food search** via **Open Food Facts**; add with serving size → macros.
-- [ ] **Barcode scan** (iPhone camera) → look up in Open Food Facts.
-- [ ] **Photo → AI scan** (Gemini vision edge function) → estimated macros to confirm.
-- [ ] **Custom foods & saved meals** for one-tap logging.
-- [ ] **Water** quick-add.
-- [ ] Daily **macro rings** roll-up.
+## Milestone 3 — AI coach (Gemini) ✅ (rule-based verified; Gemini needs owner deploy)
+- [x] **Settings** screen stores the **Gemini key** (per-user; written to `profiles.gemini_api_key`), coach on/off, and in-workout style. *(`SettingsPage.tsx`)*
+- [x] **Edge function** `supabase/functions/coach/index.ts` builds a token-frugal prompt and calls Gemini, reading the caller's key server-side (key never touches the browser). **(you)** one-time: `supabase functions deploy coach`.
+- [x] **Pre-workout:** logger pre-fills targets (rule-based suggester) **and** a **briefing** shows on the dashboard.
+- [x] **In-workout style toggle:** **per-set reactions** *or* **end-of-workout recap** (Settings), both wired into the logger.
+- [x] Persist coach messages (`coach_messages`); **graceful fallback** to rule-based text when no key/quota. *(`coach/logic.ts`, `coach/api.ts`)*
 
-**Exit check:** you can log food all four ways + water, and rings update against your goals.
+**Exit check:** ⚠️ MET for the no-AI path (verified: rule-based briefing on dashboard, recap on finish, works with no key). The Gemini-powered text activates once the owner deploys the `coach` function and pastes a key in Settings — couldn't be verified end-to-end here (no deploy/key).
 
 ---
 
-## Milestone 5 — Supplements
-- [ ] **Supplement stack** management (from seeded defaults + custom), **simple once-a-day**.
-- [ ] **Daily checklist** on the dashboard; tick off per day.
-- [ ] **Macro contribution:** protein/calorie-bearing supps feed daily totals when checked.
-- [ ] **Adherence streak** view.
+## Milestone 4 — Nutrition (Goal #2 core) ✅ (photo-AI + live camera scan deferred)
+- [x] **Goals:** TDEE **calculator** (Mifflin-St Jeor + activity + cut/bulk/maintain) **and** manual override → calorie/macro targets. *(`GoalsEditor.tsx`, `tdee.ts`)*
+- [x] **Food search** via **Open Food Facts** (keyless); add with serving size → macros. *(`off.ts`, `AddFoodSheet.tsx`)*
+- [~] **Barcode** → Open Food Facts lookup by **number entry** (works today). *Live camera scanning* needs a scanner lib (`@zxing/browser`) — deferred, clearly labeled in the UI.
+- [ ] **Photo → AI scan** (Gemini vision) — deferred; belongs with the coach edge function once a Gemini key is live.
+- [x] **Custom foods & saved meals** for one-tap logging.
+- [x] **Water** quick-add (new `water_logs` table — **(you)** apply the migration, below).
+- [x] Daily **macro rings** roll-up (food **+** checked supplements).
 
-**Exit check:** ticking protein powder increases your protein total; adherence streak shows.
-
----
-
-## Milestone 6 — Body metrics
-- [ ] **Manual weigh-in entry:** weight, body-fat %, muscle, water; log **whenever**.
-- [ ] **Smoothed trend line** chart.
-- [ ] Feed **bodyweight** into the TDEE calculator.
-- [ ] In-app note explaining the **manual-now / future-sync** reality (per PRD §9).
-
-**Exit check:** you can log a full weigh-in and see the trend; calculator uses latest weight.
+**Exit check:** ✅ MET for search/barcode/custom/saved-meal logging + water; rings update against goals (verified in browser: OFF "banana" search → log → rings updated exactly; TDEE math correct; water quick-add). Photo-AI + live camera scan are the two parked sub-items.
 
 ---
 
-## Milestone 7 — Dashboard, motivation & polish
-- [ ] **Today dashboard:** macro rings, water, today's workout / Start Workout, coach line, supplement checklist.
-- [ ] **Weekly strip:** streak, days trained, macro adherence.
-- [ ] **PR celebrations** (confetti).
-- [ ] **Progress charts:** per-exercise, muscle group, bodyweight, macro adherence over time.
-- [ ] **Streaks & beat-last-time prompts** surfaced in the flow.
-- [ ] Mobile polish: big tap targets, one-handed logging, PWA install prompt, offline-friendly shell (nice-to-have).
+## Milestone 5 — Supplements ✅
+- [x] **Supplement stack** management (seeded defaults + custom), simple once-a-day. *(`ManageStackSheet.tsx`)*
+- [x] **Daily checklist** on the dashboard; tick off per day. *(`SupplementChecklist.tsx`)*
+- [x] **Macro contribution:** protein/calorie-bearing supps feed daily totals when checked.
+- [x] **Adherence streak** (consecutive fully-taken days) shown on the checklist.
 
-**Exit check:** opening the app tells you exactly what to do today and celebrates progress; charts reflect real data.
+**Exit check:** ✅ MET — verified in browser: ticking Whey Protein added exactly +120 kcal / +24 g protein to the dashboard rings; streak logic in place.
+
+---
+
+## Milestone 6 — Body metrics ✅
+- [x] **Manual weigh-in entry:** weight, body-fat %, muscle, water; log whenever. *(`BodyPage.tsx`, `body/api.ts`)*
+- [x] **Smoothed trend line** chart (raw scale + EMA "trend weight", recharts).
+- [x] Feed latest **bodyweight** into the TDEE calculator (`getLatestWeightKg`).
+- [x] In-app note explaining the **manual-now / future-sync** reality (PRD §9).
+
+**Exit check:** ✅ MET — verified in browser: logged 82.5 kg / 18% bf, snapshot + history render, honest sync note shown. (Trend chart appears at ≥2 weigh-ins.)
+
+---
+
+## Milestone 7 — Dashboard, motivation & polish ✅ (core done; some polish parked)
+- [x] **Today dashboard:** live macro rings (food+supps), water, today's session card, coach line, supplement checklist. *(`DashboardPage.tsx`)*
+- [x] **Weekly strip:** days trained this week, calories, macro adherence %.
+- [x] **PR celebrations** (confetti) in the logger.
+- [x] **Progress charts:** per-exercise est. 1RM (Train → Progress) + bodyweight trend (Body). *(muscle-group + macro-adherence-over-time charts parked.)*
+- [x] **Streaks & beat-last-time prompts** surfaced (supplement streak, "last time" + suggestions, per-set reactions).
+- [ ] Mobile polish extras: **PWA install prompt**, offline logging, code-splitting the recharts bundle. *(nice-to-have; parked)*
+
+**Exit check:** ✅ MET — verified in browser: dashboard shows today's session + coach line + live rings/water/supplements; confetti fires on PRs; charts reflect real logged data.
 
 ---
 

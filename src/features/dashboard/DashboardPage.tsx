@@ -1,28 +1,134 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MacroRing } from "@/components/MacroRing";
-import { FlameIcon, DumbbellIcon, TrophyIcon, PlusIcon } from "@/components/icons";
+import { FlameIcon, DumbbellIcon, TrophyIcon, PlusIcon, DropletIcon } from "@/components/icons";
+import { Spinner } from "@/components/ui";
 import { useAuth } from "@/features/auth/AuthProvider";
+import { useProfile } from "@/features/profile/ProfileProvider";
+import { todayISO, relativeDay } from "@/lib/format";
+import {
+  getActiveWorkout,
+  getActiveProgram,
+  listDays,
+  listProgramExercises,
+  listExercises,
+  listWorkouts,
+} from "@/features/workouts/api";
+import {
+  getFoodTotals,
+  getWaterMl,
+  addWater,
+  addMacros,
+  type Macros,
+} from "@/features/nutrition/api";
+import { getSupplementMacros } from "@/features/supplements/api";
+import { SupplementChecklist } from "@/features/supplements/SupplementChecklist";
+import { getBriefing } from "@/features/coach/api";
+import type { Workout } from "@/types";
 
-/**
- * Today dashboard — the hybrid "what to do now" view.
- *
- * NOTE: values below are placeholders so the layout is real and testable.
- * They get wired to live data in later milestones (nutrition, workouts,
- * supplements, body). Each section is labeled with the milestone that fills it.
- */
+interface TodaySession {
+  dayId: string | null;
+  dayName: string;
+  exerciseNames: string[];
+}
+
 export function DashboardPage() {
+  const navigate = useNavigate();
   const { displayName } = useAuth();
+  const { profile, goals } = useProfile();
   const firstName = displayName.split(" ")[0];
-  const [water, setWater] = useState(1250); // ml
-  const waterGoal = 3000;
 
-  const [supps, setSupps] = useState([
-    { id: "whey", name: "Whey protein", done: true },
-    { id: "creatine", name: "Creatine", done: true },
-    { id: "vitd", name: "Vitamin D + fish oil", done: false },
-    { id: "preworkout", name: "Pre-workout", done: false },
-  ]);
-  const suppsDone = supps.filter((s) => s.done).length;
+  const [loading, setLoading] = useState(true);
+  const [foodTotals, setFoodTotals] = useState<Macros>({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
+  const [suppTotals, setSuppTotals] = useState<Macros>({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
+  const [water, setWater] = useState(0);
+  const [active, setActive] = useState<Workout | null>(null);
+  const [session, setSession] = useState<TodaySession | null>(null);
+  const [trainedThisWeek, setTrainedThisWeek] = useState(0);
+  const [briefing, setBriefing] = useState<string>("");
+
+  const refreshMacros = useCallback(async () => {
+    const [food, supp] = await Promise.all([getFoodTotals(), getSupplementMacros()]);
+    setFoodTotals(food);
+    setSuppTotals(supp);
+  }, []);
+
+  const load = useCallback(async () => {
+    const [food, supp, w, act, program, workouts] = await Promise.all([
+      getFoodTotals(),
+      getSupplementMacros(),
+      getWaterMl(),
+      getActiveWorkout(),
+      getActiveProgram(),
+      listWorkouts(50),
+    ]);
+    setFoodTotals(food);
+    setSuppTotals(supp);
+    setWater(w);
+    setActive(act);
+
+    // Trained this week (distinct local days with a completed workout, last 7d).
+    const weekAgo = todayISO(new Date(Date.now() - 6 * 86400000));
+    const days = new Set(
+      workouts
+        .filter((x) => x.completed_at && todayISO(new Date(x.started_at)) >= weekAgo)
+        .map((x) => todayISO(new Date(x.started_at))),
+    );
+    setTrainedThisWeek(days.size);
+
+    // Today's suggested session: first day of the active program.
+    let sess: TodaySession | null = null;
+    if (program) {
+      const ds = await listDays(program.id);
+      const day = ds[0] ?? null;
+      if (day) {
+        const [pex, lib] = await Promise.all([listProgramExercises(day.id), listExercises()]);
+        const libMap = new Map(lib.map((e) => [e.id, e]));
+        sess = {
+          dayId: day.id,
+          dayName: day.name,
+          exerciseNames: pex.map((p) => libMap.get(p.exercise_id)?.name).filter(Boolean) as string[],
+        };
+      }
+    }
+    setSession(sess);
+
+    // Coach briefing (rule-based unless AI configured).
+    if (sess) {
+      const { text } = await getBriefing(
+        {
+          dayName: sess.dayName,
+          firstName,
+          exercises: sess.exerciseNames.map((name) => ({ name })),
+        },
+        profile?.coach_enabled ?? true,
+      );
+      setBriefing(text);
+    } else {
+      setBriefing("");
+    }
+
+    setLoading(false);
+  }, [firstName, profile?.coach_enabled]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const totals = useMemo(() => addMacros(foodTotals, suppTotals), [foodTotals, suppTotals]);
+  const hasGoals = Boolean(goals?.calorie_target);
+  const waterGoal = goals?.water_target_ml ?? 3000;
+  const macroPct =
+    hasGoals && goals?.calorie_target
+      ? Math.round((totals.calories / goals.calorie_target) * 100)
+      : null;
+
+  async function quickWater(ml: number) {
+    setWater((w) => w + ml);
+    await addWater(ml);
+  }
+
+  if (loading) return <Spinner />;
 
   return (
     <div className="space-y-5">
@@ -37,29 +143,42 @@ export function DashboardPage() {
           style={{ background: "var(--color-surface-2)", color: "var(--color-flame)" }}
         >
           <FlameIcon className="h-4 w-4" />
-          5
+          {trainedThisWeek}
         </div>
       </header>
 
       {/* Weekly strip */}
       <section className="card-2 flex items-center justify-around p-3">
-        <Stat label="Streak" value="5 days" />
+        <Stat label="Trained" value={`${trainedThisWeek} / wk`} />
         <Divider />
-        <Stat label="Trained" value="3 / 5" />
+        <Stat label="Calories" value={hasGoals ? `${Math.round(totals.calories)}` : "—"} />
         <Divider />
-        <Stat label="Macros" value="86%" />
+        <Stat label="Macros" value={macroPct != null ? `${macroPct}%` : "—"} />
       </section>
 
       {/* Macro rings */}
-      <section className="card p-4">
-        <SectionTitle>Today's fuel</SectionTitle>
-        <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <MacroRing label="Calories" value={1680} goal={2600} unit="" color="var(--color-calories)" />
-          <MacroRing label="Protein" value={128} goal={190} color="var(--color-protein)" />
-          <MacroRing label="Carbs" value={165} goal={260} color="var(--color-carbs)" />
-          <MacroRing label="Fat" value={52} goal={78} color="var(--color-fat)" />
-        </div>
-      </section>
+      {hasGoals ? (
+        <section className="card p-4">
+          <SectionTitle>Today's fuel</SectionTitle>
+          <div className="mt-3 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <MacroRing label="Calories" value={totals.calories} goal={goals!.calorie_target ?? 0} unit="" color="var(--color-calories)" />
+            <MacroRing label="Protein" value={totals.protein_g} goal={goals!.protein_target_g ?? 0} color="var(--color-protein)" />
+            <MacroRing label="Carbs" value={totals.carbs_g} goal={goals!.carbs_target_g ?? 0} color="var(--color-carbs)" />
+            <MacroRing label="Fat" value={totals.fat_g} goal={goals!.fat_target_g ?? 0} color="var(--color-fat)" />
+          </div>
+        </section>
+      ) : (
+        <button
+          onClick={() => navigate("/nutrition")}
+          className="card w-full p-4 text-left"
+          style={{ borderStyle: "dashed", borderColor: "var(--color-brand)" }}
+        >
+          <p className="font-semibold">Set your nutrition goals →</p>
+          <p className="mt-1 text-sm text-muted">
+            Unlock macro rings with the TDEE calculator on the Fuel tab.
+          </p>
+        </button>
+      )}
 
       {/* Today's workout */}
       <section
@@ -67,22 +186,49 @@ export function DashboardPage() {
         style={{ background: "linear-gradient(135deg, var(--color-brand), var(--color-brand-strong))" }}
       >
         <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide opacity-80">Today's session</p>
-            <h3 className="mt-0.5 text-xl font-bold">Push Day</h3>
-            <p className="mt-1 text-sm opacity-90">Bench · Overhead press · Dips · Triceps</p>
+          <div className="min-w-0">
+            <p className="text-xs font-medium uppercase tracking-wide opacity-80">
+              {active ? "In progress" : "Today's session"}
+            </p>
+            <h3 className="mt-0.5 text-xl font-bold">
+              {active ? active.name ?? "Training" : session ? session.dayName : "No program yet"}
+            </h3>
+            <p className="mt-1 truncate text-sm opacity-90">
+              {active
+                ? `Started ${relativeDay(active.started_at).toLowerCase()}`
+                : session
+                  ? session.exerciseNames.slice(0, 4).join(" · ") || "Add exercises"
+                  : "Pick a template on the Train tab"}
+            </p>
           </div>
-          <DumbbellIcon className="h-8 w-8 opacity-90" />
+          <DumbbellIcon className="h-8 w-8 shrink-0 opacity-90" />
         </div>
-        <button className="mt-4 w-full rounded-xl bg-white/95 py-3 font-bold text-[color:var(--color-brand-strong)] transition active:scale-[0.98]">
-          Start Workout
+        <button
+          onClick={() => navigate("/workouts")}
+          className="mt-4 w-full rounded-xl bg-white/95 py-3 font-bold text-[color:var(--color-brand-strong)] transition active:scale-[0.98]"
+        >
+          {active ? "Resume workout" : session ? "Go to workout" : "Build a program"}
         </button>
       </section>
+
+      {/* Coach line */}
+      {briefing && (
+        <section className="card flex items-start gap-3 p-4" style={{ borderColor: "var(--color-brand)" }}>
+          <TrophyIcon className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "var(--color-accent)" }} />
+          <p className="text-sm text-muted">
+            <span className="font-semibold text-[color:var(--color-brand-soft)]">Coach:</span> {briefing}
+          </p>
+        </section>
+      )}
 
       {/* Water */}
       <section className="card p-4">
         <div className="flex items-center justify-between">
-          <SectionTitle>Water</SectionTitle>
+          <SectionTitle>
+            <span className="inline-flex items-center gap-2">
+              <DropletIcon className="h-4 w-4" style={{ color: "var(--color-water)" }} /> Water
+            </span>
+          </SectionTitle>
           <span className="text-sm text-muted">
             {(water / 1000).toFixed(2)}L / {(waterGoal / 1000).toFixed(1)}L
           </span>
@@ -97,7 +243,7 @@ export function DashboardPage() {
           {[250, 500].map((ml) => (
             <button
               key={ml}
-              onClick={() => setWater((w) => Math.min(w + ml, waterGoal + 1000))}
+              onClick={() => quickWater(ml)}
               className="flex flex-1 items-center justify-center gap-1 rounded-xl py-2.5 text-sm font-semibold"
               style={{ background: "var(--color-surface-2)", color: "var(--color-water)" }}
             >
@@ -109,51 +255,7 @@ export function DashboardPage() {
       </section>
 
       {/* Supplements */}
-      <section className="card p-4">
-        <div className="flex items-center justify-between">
-          <SectionTitle>Supplements</SectionTitle>
-          <span className="text-sm text-muted">{suppsDone} / {supps.length}</span>
-        </div>
-        <ul className="mt-3 space-y-2">
-          {supps.map((s) => (
-            <li key={s.id}>
-              <button
-                onClick={() =>
-                  setSupps((prev) =>
-                    prev.map((x) => (x.id === s.id ? { ...x, done: !x.done } : x)),
-                  )
-                }
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left"
-                style={{ background: "var(--color-surface-2)" }}
-              >
-                <span
-                  className="flex h-6 w-6 items-center justify-center rounded-full border-2 text-xs font-bold"
-                  style={{
-                    borderColor: s.done ? "var(--color-accent)" : "var(--color-line)",
-                    background: s.done ? "var(--color-accent)" : "transparent",
-                    color: s.done ? "#0b0f1a" : "transparent",
-                  }}
-                >
-                  ✓
-                </span>
-                <span className={s.done ? "text-muted line-through" : ""}>{s.name}</span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* Coach line placeholder */}
-      <section
-        className="card flex items-start gap-3 p-4"
-        style={{ borderColor: "var(--color-brand)" }}
-      >
-        <TrophyIcon className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "var(--color-accent)" }} />
-        <p className="text-sm text-muted">
-          <span className="font-semibold text-[color:var(--color-brand-soft)]">Coach:</span>{" "}
-          Your AI briefing lands here once Gemini is wired up (Milestone 3). Today: beat 60kg×6 on bench.
-        </p>
-      </section>
+      <SupplementChecklist onChange={refreshMacros} />
     </div>
   );
 }

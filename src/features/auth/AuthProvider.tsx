@@ -8,6 +8,8 @@ import {
 } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase, isSupabaseConfigured } from "@/lib/supabase";
+import { setSessionState } from "@/lib/session";
+import { resetLocalDb } from "@/lib/localDb";
 
 interface AuthState {
   /** True once we've resolved the initial session (or decided on demo mode). */
@@ -51,6 +53,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => sub.subscription.unsubscribe();
   }, []);
 
+  // Keep the (context-free) data layer in sync with auth so feature apis can
+  // decide backend-vs-demo synchronously on every call.
+  useEffect(() => {
+    setSessionState(session, demo);
+  }, [session, demo]);
+
   const value = useMemo<AuthState>(() => {
     const user = session?.user ?? null;
     const displayName =
@@ -82,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setDemo(true);
       },
       async signOut() {
+        if (demo) resetLocalDb(); // clear local demo data on exit
         localStorage.removeItem(DEMO_FLAG);
         setDemo(false);
         if (supabase) await supabase.auth.signOut();

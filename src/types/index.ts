@@ -46,6 +46,7 @@ export type Supplement = Row<"supplements">;
 export type SupplementLog = Row<"supplement_logs">;
 export type BodyMetric = Row<"body_metrics">;
 export type CoachMessage = Row<"coach_messages">;
+export type WaterLog = Row<"water_logs">;
 
 // ---- Insert types (what you write; optionals have DB defaults) --------------
 export type ProfileInsert = Insert<"profiles">;
@@ -65,6 +66,7 @@ export type SupplementInsert = Insert<"supplements">;
 export type SupplementLogInsert = Insert<"supplement_logs">;
 export type BodyMetricInsert = Insert<"body_metrics">;
 export type CoachMessageInsert = Insert<"coach_messages">;
+export type WaterLogInsert = Insert<"water_logs">;
 
 // ---- Update types (partial patches) ----------------------------------------
 export type ProfileUpdate = Update<"profiles">;

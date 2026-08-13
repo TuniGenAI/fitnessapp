@@ -17,7 +17,12 @@ You run these **once**, against your Supabase project. Two ways — pick one.
    2. `migrations/20260813120100_rls_policies.sql` — turns on per-user security + new-user setup
    3. `migrations/20260813120200_seed_exercises.sql` — fills the exercise library
    4. `migrations/20260813120300_seed_supplement_templates.sql` — default supplement stack
+   5. `migrations/20260813120400_add_water_logs.sql` — **water tracking (added for Milestone 4)**
 3. Each should finish with **Success. No rows returned** (that's expected).
+
+> **Already applied files 1–4 earlier?** Just run **file 5** (`…_add_water_logs.sql`) —
+> it's the only new one. Water quick-add on the live signed-in site needs it (demo
+> mode works without it). Safe/idempotent to re-run.
 
 That's it — the backend is ready. The files are safe to re-run if you're unsure;
 they won't create duplicates.
