@@ -6,16 +6,17 @@
 
 ## Where we are
 
-**Milestone 0 (Foundations) is code-complete and verified running.** **Milestone 1 (Data foundation) is written and build-verified** — only applying the SQL to the live Supabase project remains (a **(you)** step). The app builds with no type errors, runs locally, and is fully clickable in **demo mode** (no backend needed yet).
+**Milestone 0 (Foundations) is code-complete and verified running.** **Milestone 1 (Data foundation) is DONE — schema applied to the live Supabase project and verified (2026-08-13).** The app builds with no type errors, runs locally, and is fully clickable in **demo mode** (no backend needed yet). **Next is Milestone 2 (Workouts).**
 
 ### Milestone 1 built (2026-08-13)
 - **Full schema** in `supabase/migrations/` — 4 ordered SQL files covering all 18 tables (profiles, goals, programs/program_days/program_exercises, exercises, workouts/workout_sets, personal_records, foods, meals/meal_items, food_logs, supplement_templates/supplements, supplement_logs, body_metrics, coach_messages).
 - **RLS on every table** — owner-only policies (generated in a DO-block loop); seeded `exercises` (user_id NULL) and `supplement_templates` are shared read-only reference data. A **new-user trigger** (`handle_new_user`) auto-creates the profile, an empty goals row, and copies the default supplement stack on first sign-in.
-- **Seeds** — ~44-move exercise library + 5 default supplements (whey/creatine/multivitamin/fish oil/pre-workout).
+- **Seeds** — 45-move exercise library + 5 default supplements (whey/creatine/multivitamin/fish oil/pre-workout).
 - **TypeScript types** — `src/types/database.ts` (Supabase-generated style: Row/Insert/Update per table) + convenience aliases in `src/types/index.ts`. The Supabase client is now typed with `<Database>`. `npm run build` stays green.
 - **Apply guide** for the non-coder owner: `supabase/README.md` (SQL-Editor paste path + CLI path + verification steps).
 
-**Milestone 1's one remaining (you) step:** paste the 4 SQL files into Supabase → SQL Editor (order + steps in `supabase/README.md`). Needs the Supabase URL + anon key in `.env.local` first.
+**Applied & verified live (2026-08-13)** against project `yotsunlngoudmxowiviq` via the REST API with the anon key: all 18 tables present; `exercises` = 45 global rows (matches seed, no dupes); RLS enforced — anon reads on owner tables return 0 rows, anon INSERT is rejected `401 / 42501 "violates row-level security policy"`, and `supplement_templates` is hidden from anon (authenticated-only policy) despite being seeded.
+- **Not yet exercised (fires on real use, verify then):** the `handle_new_user` trigger runs on the **first Google sign-in** — after signing in on the live site, check Table Editor: your `profiles` + `goals` rows exist and `supplements` holds the 5 defaults. Cross-user isolation can't be tested until a 2nd account exists, but the policies + the write-block above give high confidence.
 
 ### Built & verified
 - **React + Vite + TypeScript + Tailwind v4** scaffold. `npm run build` passes clean.
@@ -50,8 +51,7 @@ Verified live: `auth/v1/health` → 200, anon JWT decodes valid (`role: anon`, m
 
 **Google OAuth — ✅ DONE & VERIFIED (2026-08-13).** Google Cloud OAuth client created (client_id `376412115-q79f…apps.googleusercontent.com`), enabled in Supabase, callback `…supabase.co/auth/v1/callback`. Supabase URL Configuration set: Site URL = the Vercel domain; Redirect URLs include `https://fitnessapp-mauve-nine.vercel.app/**` and `http://localhost:5173/**`. Verified: authorize endpoint 302s to `accounts.google.com` with the right client_id/callback, and clicking "Continue with Google" on the live site reaches Google's sign-in screen. Consent screen is in **Testing** mode with the owner's Gmail as a test user (no Google verification needed for personal use). *If the deployed domain ever changes, add the new domain to Supabase Redirect URLs.*
 
-**Still pending:**
-- **Apply the DB schema** (Milestone 1's remaining step) — paste the 4 SQL files from `supabase/migrations/` into Supabase → SQL Editor → Run, in order (steps in `supabase/README.md`).
+**DB schema — ✅ APPLIED & VERIFIED (2026-08-13).** The 4 SQL files were run in the SQL Editor; live verification passed (see "Applied & verified live" under *Milestone 1 built* above). Nothing pending here.
 
 ### 2. GitHub — ✅ DONE (2026-08-13)
 - Repo: **https://github.com/TuniGenAI/fitnessapp** (private). Remote `origin` set; initial commit `1558f2f` pushed to `main`. Git identity: `TuniGenAI <benfrijaomar@gmail.com>`, credential helper = GCM (cached, no prompt on push).
@@ -75,10 +75,7 @@ With the schema in place, build the workout flow against the typed Supabase clie
 - **Rule-based next-target suggester** (works with no AI): hit all target reps last time → +2.5 kg or +1 rep.
 - **Workout history** + per-exercise view; **PR detection** writing to `personal_records`.
 
-Everything works in demo mode without a backend, but real persistence needs the migrations applied (below) + Supabase keys in `.env.local`.
-
-### Blocking (you) step carried over from Milestone 1
-Apply the schema: paste the 4 SQL files in `supabase/migrations/` into Supabase → SQL Editor, in order (full steps in `supabase/README.md`). Requires the Supabase URL + anon key in `.env.local`.
+The backend is live: schema applied + verified, Supabase keys in `.env.local`, Google OAuth working, deployed on Vercel. **No blocking (you) steps remain before Milestone 2** — build straight against the typed client. (First real Google sign-in will fire the `handle_new_user` trigger; a quick Table Editor glance then confirms profile/goals/default-supplements auto-seed.)
 
 ---
 

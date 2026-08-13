@@ -23,10 +23,9 @@ Ordered so the app is **runnable early** and each step builds on a working base.
 - [x] Add **row-level security** on every table (each user sees only their own rows; seeded exercises + supplement templates are shared read-only reference data). *(`…_rls_policies.sql`, incl. a new-user trigger that seeds profile + goals + default supplement stack)*
 - [x] Seed a starter **exercise library** (~44 free-weight/machine/cable/bodyweight moves) and **default supplements** (whey, creatine, multivitamin, fish oil, pre-workout). *(`…_seed_exercises.sql`, `…_seed_supplement_templates.sql`)*
 - [x] Generate shared **TypeScript types** from the schema. *(`src/types/database.ts` + convenience aliases in `src/types/index.ts`; Supabase client is now typed with `<Database>`.)*
-- [ ] **(you)** Apply the migrations to Supabase — paste the 4 SQL files into the SQL Editor (see [`supabase/README.md`](./supabase/README.md)). Gated on the Supabase URL + anon key being in `.env.local`.
+- [x] **(you)** Apply the migrations to Supabase — 4 SQL files run via the SQL Editor. *(Applied 2026-08-13.)*
 
-**Exit check:** tables exist, security verified (a user can't read another's rows), types available in code.
-*Progress: schema, RLS, seeds, and types are written and the build is green with the typed client. Applying to the live DB is the one remaining **(you)** step.*
+**Exit check:** ✅ MET — verified live against project `yotsunlngoudmxowiviq`: all 18 tables exist; exercise library = 45 rows (no dupes); RLS enforced (anon read on owner tables → 0 rows, anon INSERT → 401 "violates row-level security policy", `supplement_templates` hidden from anon while seeded); types available and build green with the typed client.
 
 ---
 
