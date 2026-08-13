@@ -2,14 +2,14 @@ import { useState } from "react";
 import { APP_NAME } from "@/appConfig";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useProfile } from "@/features/profile/ProfileProvider";
-import { useTheme } from "@/lib/theme";
+import { useTheme, type Theme } from "@/lib/theme";
 import { Segmented, Button } from "@/components/ui";
 import type { CoachMode, WeightUnit, VolumeUnit } from "@/types";
 
 export function SettingsPage() {
   const { displayName, user, demo, configured, signOut } = useAuth();
   const { profile, updateProfile } = useProfile();
-  const { theme, toggle } = useTheme();
+  const { theme, setTheme } = useTheme();
 
   const [keyInput, setKeyInput] = useState("");
   const [savedKey, setSavedKey] = useState(false);
@@ -17,7 +17,7 @@ export function SettingsPage() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-2xl font-extrabold tracking-tight">Settings</h1>
+      <h1 className="font-display text-2xl font-bold tracking-tight">Settings</h1>
 
       {/* Account */}
       <section className="card p-4">
@@ -73,20 +73,22 @@ export function SettingsPage() {
       </section>
 
       {/* Appearance */}
-      <section className="card p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Appearance</h2>
-            <p className="mt-1 text-sm">Theme: {theme === "dark" ? "Dark" : "Light"}</p>
-          </div>
-          <button
-            onClick={toggle}
-            className="rounded-full px-4 py-2 text-sm font-semibold"
-            style={{ background: "var(--color-surface-2)" }}
-          >
-            Switch to {theme === "dark" ? "light" : "dark"}
-          </button>
-        </div>
+      <section className="card space-y-3 p-4">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Appearance</h2>
+        <Segmented<Theme>
+          value={theme}
+          onChange={setTheme}
+          options={[
+            { value: "system", label: "System" },
+            { value: "light", label: "Light" },
+            { value: "dark", label: "Dark" },
+          ]}
+        />
+        <p className="text-xs text-muted">
+          {theme === "system"
+            ? "Follows your device's light / dark setting."
+            : `Always ${theme}.`}
+        </p>
       </section>
 
       {/* AI Coach */}

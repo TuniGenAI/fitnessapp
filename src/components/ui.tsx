@@ -72,7 +72,7 @@ export function PageHeader({
             <Icon className="h-6 w-6" />
           </div>
         )}
-        <h1 className="text-2xl font-extrabold tracking-tight">{title}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight">{title}</h1>
       </div>
       {action}
     </header>

@@ -149,14 +149,14 @@ export function DashboardPage() {
       <header className="flex items-center justify-between">
         <div>
           <p className="text-sm text-muted">{greeting()},</p>
-          <h1 className="text-2xl font-extrabold tracking-tight">{firstName} 👋</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight">{firstName} 👋</h1>
         </div>
         <div
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold"
           style={{ background: "var(--color-surface-2)", color: "var(--color-flame)" }}
         >
           <FlameIcon className="h-4 w-4" />
-          {trainedThisWeek}
+          <span className="font-display">{trainedThisWeek}</span>
         </div>
       </header>
 
@@ -203,7 +203,7 @@ export function DashboardPage() {
             <p className="text-xs font-medium uppercase tracking-wide opacity-80">
               {active ? "In progress" : "Today's session"}
             </p>
-            <h3 className="mt-0.5 text-xl font-bold">
+            <h3 className="mt-0.5 font-display text-xl font-bold">
               {active ? active.name ?? "Training" : session ? session.dayName : "No program yet"}
             </h3>
             <p className="mt-1 truncate text-sm opacity-90">
@@ -287,7 +287,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="text-center">
-      <div className="text-lg font-extrabold">{value}</div>
+      <div className="font-display text-lg font-bold">{value}</div>
       <div className="text-[11px] text-muted">{label}</div>
     </div>
   );

@@ -1,49 +1,63 @@
 @import "tailwindcss";
 
 /* ------------------------------------------------------------------ *
- * Design tokens — a playful, energetic fitness theme.
- * Dark-first (the app defaults to dark). Colors are exposed to Tailwind
- * via @theme so utilities like `bg-brand`, `text-protein` just work.
+ * "Calm Athletic" design system
+ * ------------------------------------------------------------------
+ * A serene sky/teal identity with a bright-green energy accent,
+ * glassy gradient surfaces, expressive display numerals, and an airy
+ * layout that stays playful. Fully dual: dark-first tokens here, light
+ * overrides below, and the app follows the system setting by default.
+ *
+ * Tokens are exposed to Tailwind via @theme, so utilities like
+ * `bg-brand`, `text-accent`, `font-display` just work.
  * ------------------------------------------------------------------ */
 @theme {
-  /* Brand — energetic violet→indigo */
-  --color-brand: #7c5cff;
-  --color-brand-strong: #6344ff;
-  --color-brand-soft: #a996ff;
+  /* Brand — calm sky → teal (identity: nav, headers, primary actions) */
+  --color-brand: #22b6d6;
+  --color-brand-strong: #0e9bc0;
+  --color-brand-soft: #84dcef;
 
-  /* Accent — electric lime for "go / success / PR" moments */
-  --color-accent: #b6ff3c;
-  --color-accent-strong: #9be400;
+  /* Accent — bright green for "go / success / PR / active" moments */
+  --color-accent: #4fe08a;
+  --color-accent-strong: #2ecf74;
 
-  /* Macro ring colors */
+  /* Macro ring colors (kept distinct + labeled) */
   --color-protein: #ff5d8f; /* pink */
   --color-carbs: #ffb020; /* amber */
-  --color-fat: #35d0ba; /* teal */
-  --color-water: #37b6ff; /* sky */
-  --color-calories: #7c5cff; /* brand */
+  --color-fat: #2dd4bf; /* teal-mint */
+  --color-water: #38bdf8; /* sky */
+  --color-calories: #7c6cf6; /* violet (heritage hue lives on here) */
 
   /* Motivation */
   --color-flame: #ff7a1a;
 
-  /* Surfaces (dark) */
-  --color-ink: #0b0f1a; /* app background */
-  --color-surface: #131a2a; /* card */
+  /* Surfaces (dark) — cool navy with glassy cards layered on top */
+  --color-ink: #0a0e17; /* app background base */
+  --color-surface: #131b2b; /* card (solid fallback under glass) */
   --color-surface-2: #1b2438; /* raised card */
   --color-line: #263149; /* borders */
-  --color-muted: #8a97b1; /* secondary text */
+  --color-muted: #94a3c4; /* secondary text */
 
-  --radius-card: 1.25rem;
+  /* Glass + shape */
+  --glass-blur: 16px;
+  --glass-tint: 74%; /* card opacity over the app background */
+  --radius-card: 1.5rem;
+
+  /* Type — Space Grotesk for expressive numerals/headings, Inter for body */
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
     Roboto, Helvetica, Arial, sans-serif;
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui,
+    -apple-system, "Segoe UI", sans-serif;
 }
 
-/* Light theme overrides */
+/* Light theme — airy, pastel, wellness-calm (Purrweb direction) */
 :root.light {
-  --color-ink: #f5f7fb;
+  --color-ink: #eaf1f8;
   --color-surface: #ffffff;
-  --color-surface-2: #f0f3fa;
-  --color-line: #e2e8f5;
-  --color-muted: #5b6780;
+  --color-surface-2: #f1f6fc;
+  --color-line: #e3ebf5;
+  --color-muted: #57647d;
+  --glass-tint: 78%;
 }
 
 html,
@@ -54,17 +68,38 @@ body,
 
 body {
   margin: 0;
-  background-color: var(--color-ink);
   color: #eef2fb;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* Calm, glassy ground: base ink + two soft brand/accent glows so the
+     translucent cards have something to blur against. Fixed so it doesn't
+     scroll away. */
+  background-color: var(--color-ink);
+  background-image:
+    radial-gradient(
+      120% 80% at 15% -10%,
+      color-mix(in srgb, var(--color-brand) 22%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      110% 70% at 100% 0%,
+      color-mix(in srgb, var(--color-calories) 18%, transparent),
+      transparent 55%
+    ),
+    radial-gradient(
+      90% 60% at 50% 115%,
+      color-mix(in srgb, var(--color-accent) 12%, transparent),
+      transparent 60%
+    );
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   /* Respect iPhone safe areas (notch / home indicator) for the installed PWA */
   padding: env(safe-area-inset-top) env(safe-area-inset-right)
     env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 :root.light body {
-  color: #0e1524;
+  color: #10192b;
 }
 
 /* Prevent pull-to-refresh / overscroll bounce feeling un-app-like */
@@ -74,17 +109,66 @@ html {
 
 /* Reusable component-ish classes */
 @layer components {
+  /* Glass card — translucent surface + blur + a faint top-light sheen. */
   .card {
-    background-color: var(--color-surface);
-    border: 1px solid var(--color-line);
+    background-color: color-mix(
+      in srgb,
+      var(--color-surface) var(--glass-tint),
+      transparent
+    );
+    background-image: linear-gradient(
+      160deg,
+      color-mix(in srgb, #ffffff 6%, transparent),
+      transparent 42%
+    );
+    border: 1px solid
+      color-mix(in srgb, var(--color-line) 85%, transparent);
     border-radius: var(--radius-card);
+    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    box-shadow:
+      0 1px 0 0 color-mix(in srgb, #ffffff 8%, transparent) inset,
+      0 12px 30px -18px rgba(0, 0, 0, 0.55);
   }
+  :root.light .card {
+    box-shadow:
+      0 1px 0 0 rgba(255, 255, 255, 0.7) inset,
+      0 14px 30px -20px rgba(31, 54, 92, 0.28);
+  }
+
   .card-2 {
-    background-color: var(--color-surface-2);
-    border: 1px solid var(--color-line);
+    background-color: color-mix(
+      in srgb,
+      var(--color-surface-2) var(--glass-tint),
+      transparent
+    );
+    border: 1px solid
+      color-mix(in srgb, var(--color-line) 85%, transparent);
     border-radius: var(--radius-card);
+    backdrop-filter: blur(var(--glass-blur)) saturate(140%);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(140%);
   }
+
   .text-muted {
     color: var(--color-muted);
   }
+
+  /* Sky→teal→green gradient text for hero numerals / accents. */
+  .text-gradient {
+    background-image: linear-gradient(
+      110deg,
+      var(--color-brand-soft),
+      var(--color-brand) 45%,
+      var(--color-accent)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+}
+
+/* Big numbers read best with tabular figures. */
+.font-display {
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
 }

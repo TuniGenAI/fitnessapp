@@ -196,6 +196,11 @@ VITE_SUPABASE_ANON_KEY=...   # from step 6.2
 - **Free accounts needed:** Supabase, Google (OAuth + Gemini key), Vercel
 - **Monthly cost (1 user):** $0
 
+### Design system — "Calm Athletic" (2026-08-13)
+- **One source of truth:** all colors, radii, glass, and fonts are CSS tokens in [`src/index.css`](./src/index.css) `@theme` (dark-first) with `:root.light` overrides. Change the look there — components consume tokens via Tailwind utilities (`bg-brand`, `text-accent`) and the `.card` / `.card-2` glass classes. **Don't hardcode hex in components.**
+- **Identity:** calm sky/teal **brand** (`--color-brand #22b6d6`), bright-green **energy accent** (`--color-accent #4fe08a` = go/success/PR), violet kept only as the calories ring. Surfaces are **glass** (translucent + `backdrop-blur` + gradient sheen) over a fixed radial-glow body background. Big numerals/headings use the **display font** (Space Grotesk via the `.font-display` utility); body is Inter. Fonts load from Google Fonts in `index.html` (graceful system fallback offline).
+- **True dual theme:** `src/lib/theme.ts` is tri-state `system | light | dark`, **defaults to `system`**, and re-applies live on OS change. A pre-paint script in `index.html` sets the class before first paint (no flash). Settings → Appearance is a 3-way segmented control.
+
 ### Architecture that matters when editing
 - **Local-first data layer:** feature UI → each feature's `api.ts` → `@/lib/repo` + `@/lib/session`, which hit **Supabase when signed in** and the **localStorage demo store** (`@/lib/localDb.ts`) otherwise. This keeps the app fully clickable/verifiable in *demo mode* without Google OAuth. Keep new features on this pattern.
 - **Charts + scanner are code-split** — `recharts` loads via `React.lazy` when a chart mounts; `@zxing/browser` via dynamic `import()` on first camera use. Keep chart code behind lazy boundaries so the main bundle stays ~130 kB.

@@ -45,11 +45,16 @@ export function MacroRing({
             strokeWidth={stroke}
             strokeLinecap="round"
             strokeDasharray={`${dash} ${c}`}
-            style={{ transition: "stroke-dasharray 600ms ease" }}
+            style={{
+              transition: "stroke-dasharray 600ms cubic-bezier(0.22, 1, 0.36, 1)",
+              filter: `drop-shadow(0 0 6px color-mix(in srgb, ${color} 55%, transparent))`,
+            }}
           />
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-lg font-bold leading-none">{Math.round(value)}</span>
+          <span className="font-display text-xl font-bold leading-none">
+            {Math.round(value)}
+          </span>
           <span className="text-[10px] text-muted">/ {goal}{unit}</span>
         </div>
       </div>
