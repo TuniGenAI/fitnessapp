@@ -77,7 +77,12 @@ Deno.serve(async (request: Request) => {
               ],
             },
           ],
-          generationConfig: { temperature: 0.2, maxOutputTokens: 200 },
+          // See food-text: thinking models need output-token headroom + forced JSON.
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 2048,
+            responseMimeType: "application/json",
+          },
         }),
       },
     );

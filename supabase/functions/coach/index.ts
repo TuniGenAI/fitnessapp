@@ -111,7 +111,10 @@ Deno.serve(async (request: Request) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: { temperature: 0.8, maxOutputTokens: 160 },
+          // `gemini-flash-latest` is a thinking model whose reasoning draws from
+          // maxOutputTokens — a 160 cap left nothing for the briefing text. The
+          // prompt still keeps the prose short; this just leaves room to think.
+          generationConfig: { temperature: 0.8, maxOutputTokens: 2048 },
         }),
       },
     );
