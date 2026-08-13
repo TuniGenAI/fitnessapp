@@ -12,6 +12,68 @@ import type {
   GoalsUpdate,
 } from "@/types";
 
+/**
+ * Self-test for the "saves but vanishes on refresh" bug. Runs in the user's own
+ * authenticated session: reads their profile rows, writes a marker, re-reads it,
+ * then restores the original key. The output pinpoints WHERE the value is lost —
+ * write vs persistence vs session mismatch — without needing DB access.
+ */
+export async function diagnoseProfilePersistence(): Promise<string> {
+  const uid = getUserId();
+  const out: string[] = [];
+  const sess = await supabase?.auth.getSession();
+  const authId = sess?.data.session?.user?.id ?? null;
+  out.push(`app uid: ${uid ?? "—"}`);
+  out.push(`auth session uid: ${authId ?? "—"}`);
+  out.push(`uid matches session: ${uid === authId ? "yes" : "NO ⚠︎"}`);
+  out.push(`usingBackend: ${usingBackend()}`);
+  if (!usingBackend() || !supabase || !uid) {
+    out.push("Not signed in to the backend — nothing to test.");
+    return out.join("\n");
+  }
+
+  // 1) What rows can this session actually see?
+  const { data: rows, error: rErr } = await supabase
+    .from("profiles")
+    .select("id, gemini_api_key, updated_at");
+  if (rErr) out.push(`READ error: ${rErr.message} [${rErr.code}]`);
+  out.push(`profile rows visible: ${rows?.length ?? 0}`);
+  for (const r of rows ?? []) {
+    out.push(
+      `  • id ${String(r.id).slice(0, 8)}…  key=${r.gemini_api_key ? "SET" : "empty"}  updated=${r.updated_at ?? "?"}`,
+    );
+  }
+  const original = (rows ?? []).find((r) => r.id === uid)?.gemini_api_key ?? null;
+
+  // 2) Write a unique marker, capturing what the write RETURNS.
+  const marker = `diag-${Date.now()}`;
+  const { data: wrote, error: wErr } = await supabase
+    .from("profiles")
+    .update({ gemini_api_key: marker })
+    .eq("id", uid)
+    .select("gemini_api_key")
+    .maybeSingle();
+  if (wErr) out.push(`WRITE error: ${wErr.message} [${wErr.code}]`);
+  else out.push(`write returned: ${wrote?.gemini_api_key ?? "null (0 rows)"}`);
+
+  // 3) Fresh, independent re-read — did the marker actually persist?
+  const { data: after, error: aErr } = await supabase
+    .from("profiles")
+    .select("gemini_api_key")
+    .eq("id", uid)
+    .maybeSingle();
+  if (aErr) out.push(`RE-READ error: ${aErr.message} [${aErr.code}]`);
+  else {
+    const ok = after?.gemini_api_key === marker;
+    out.push(`re-read after write: ${after?.gemini_api_key ?? "null"}`);
+    out.push(`>>> ${ok ? "PERSISTED ✓ (write works — problem is on load)" : "NOT PERSISTED ✗ (DB is rejecting the write)"}`);
+  }
+
+  // Restore the original key so the test doesn't clobber it.
+  await supabase.from("profiles").update({ gemini_api_key: original }).eq("id", uid);
+  return out.join("\n");
+}
+
 export async function getProfile(): Promise<Profile | null> {
   const uid = getUserId();
   if (!uid) return null;
