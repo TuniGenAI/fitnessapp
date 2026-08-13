@@ -8,7 +8,9 @@ This file is the home base for building and maintaining the Fitness App. It's wr
 
 ## 0. START HERE (for a fresh conversation)
 
-> **⚡ CURRENT STATUS (2026-08-13): Phase 1 is COMPLETE and LIVE.** All features (M0–M7) are built and deployed; backend, edge functions (`coach`, `food-photo`), and the Gemini key are live; `npm run build` is green. Only **Milestone 8** (the owner's on-device iPhone-PWA pass) and one parked item (offline logging) remain. **Read [`HANDOFF.md`](./HANDOFF.md) for the exact current state + a Runbook (deploy, migrations, the PostgREST schema-cache gotcha, type regen).** The steps below describe the original cold-start build order and are kept for history.
+> **⚡ CURRENT STATUS (2026-08-13): Phase 1 is COMPLETE and LIVE.** All features (M0–M7) are built and deployed; backend, edge functions (`coach`, `food-photo`, `food-text`), and the Gemini key are live; `npm run build` is green. Only **Milestone 8** (the owner's on-device iPhone-PWA pass) and one parked item (offline logging) remain. **Read [`HANDOFF.md`](./HANDOFF.md) for the exact current state + a Runbook (deploy, migrations, the PostgREST schema-cache gotcha, type regen).** The steps below describe the original cold-start build order and are kept for history.
+>
+> **Post-Phase-1 changes (2026-08-13, app v0.5.0):** custom exercises are **editable/deletable** from the picker (owner-created only; seeded library is read-only); dashboard water supports a **clamped −250 ml reduce**; supplements can be logged **multiple times/day** (a `count` column on `supplement_logs`, migration `20260813120500`, macros scale by count); nutrition **Add food → Describe** tab estimates a whole meal's macros from free text via the new `food-text` edge function (rename + save-for-future + confirm, same graceful fallback as photo). A **profile/goals persistence bug** ("saved but empty on refresh") was fixed at the root — see the auth/session note under *Architecture that matters when editing*. A small `APP_NAME · vX.Y.Z` marker in Settings (bump it on deploys) lets the owner confirm the live build past the PWA cache.
 
 **If you're an AI assistant opening this project cold, do this in order:**
 1. Read **this file** (stack, architecture, conventions, setup).
@@ -192,7 +194,7 @@ VITE_SUPABASE_ANON_KEY=...   # from step 6.2
 - **Build checklist:** [`TASKS.md`](./TASKS.md) · **Current state + Runbook:** [`HANDOFF.md`](./HANDOFF.md)
 - **Run locally:** `npm run dev` · **Build (must stay green):** `npm run build`
 - **Live app:** https://fitnessapp-mauve-nine.vercel.app (auto-deploys on push to `main`)
-- **Supabase project:** `yotsunlngoudmxowiviq` · **Edge functions:** `coach`, `food-photo` (deployed; read the per-user Gemini key server-side)
+- **Supabase project:** `yotsunlngoudmxowiviq` · **Edge functions:** `coach`, `food-photo`, `food-text` (deployed; read the per-user Gemini key server-side). **The CLI isn't installed locally** — deploy functions with `npx supabase functions deploy <name>` (after `npx supabase login` + `npx supabase link --project-ref yotsunlngoudmxowiviq`) or paste the code in the Supabase dashboard → Edge Functions.
 - **Free accounts needed:** Supabase, Google (OAuth + Gemini key), Vercel
 - **Monthly cost (1 user):** $0
 
@@ -205,7 +207,9 @@ VITE_SUPABASE_ANON_KEY=...   # from step 6.2
 - **Local-first data layer:** feature UI → each feature's `api.ts` → `@/lib/repo` + `@/lib/session`, which hit **Supabase when signed in** and the **localStorage demo store** (`@/lib/localDb.ts`) otherwise. This keeps the app fully clickable/verifiable in *demo mode* without Google OAuth. Keep new features on this pattern.
 - **Charts + scanner are code-split** — `recharts` loads via `React.lazy` when a chart mounts; `@zxing/browser` via dynamic `import()` on first camera use. Keep chart code behind lazy boundaries so the main bundle stays ~130 kB.
 - **Migrations gotcha:** a newly created table 404s over REST (`PGRST205`) until PostgREST's schema cache reloads — run `NOTIFY pgrst, 'reload schema';` or restart the project. Page loads are defensive (`Promise.allSettled` + `finally`) so one failing query can't blank a screen.
+- **Auth session must be registered DURING RENDER, not in an effect** (`src/features/auth/AuthProvider.tsx` calls `setSessionState(session, demo)` in the render body). React runs **child effects before parent effects**, so if this were a `useEffect`, `ProfileProvider` (a child) would load profile/goals *before* the session id reached `@/lib/session`, `usingBackend()` would be `false`, and the read would return nothing — making saved data look lost on **every reload** (backend only; demo is synchronous so it hides the bug). Don't move this back into an effect. Root cause of the long "saves but empty on refresh" hunt.
+- **Profile/goals writes are resilient** (`src/features/profile/api.ts`): read-then-`UPDATE`-by-id / `INSERT`-if-missing (no reliance on `onConflict`), and a write that touches **0 rows is a hard error** surfaced in the UI, never a silent no-op. `ProfileProvider` loads profile and goals **independently** (`Promise.allSettled`) so one failing read can't discard the other. Keep both patterns.
 
 ### Biggest known product limits (per PRD §9)
-- iPhone+PWA can't auto-read the Xiaomi scale → **manual weigh-in entry** for v1 (honest note in the Body screen).
+- iPhone+PWA can't auto-read the Xiaomi scale → **manual weigh-in entry** for v1. (The explanatory note was removed from the Body screen at the owner's request on 2026-08-13; the limitation itself still stands — see PRD §9.)
 - A personal AI subscription can't power the app → **Gemini free key** instead, called from an edge function; every AI feature has a non-AI fallback.
