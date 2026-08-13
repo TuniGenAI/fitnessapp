@@ -14,7 +14,8 @@
 // ============================================================================
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const GEMINI_MODEL = "gemini-1.5-flash-latest";
+// See note in `coach` — moving alias so a model retirement won't 404 us again.
+const GEMINI_MODEL = "gemini-flash-latest";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",

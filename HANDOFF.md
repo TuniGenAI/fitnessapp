@@ -17,6 +17,8 @@
 >
 > The only work left is **Milestone 8** — an owner end-to-end pass on the *installed iPhone PWA* — plus the single parked nice-to-have (offline logging).
 
+> **🔧 Gemini model fix (2026-08-13).** All three edge functions (`coach`, `food-photo`, `food-text`) were pinned to `gemini-1.5-flash-latest`, which Google **retired** — every call returned HTTP 404, so *all* AI features (coach text, photo scan, Describe) silently fell back at once. The symptom looked like a "function not deployed / no key" problem because the client turns any `fallback:true`/error into that same message. Fixed by switching the `GEMINI_MODEL` constant in all three functions to the **moving alias `gemini-flash-latest`** (tracks Google's current flash model, so a future retirement won't 404 us again) and redeploying all three. If AI breaks again with a `gemini <status>` error, check the model alias here first.
+
 ### What M2–M7 added (all local-first: Supabase when signed in, localStorage in demo)
 - **Data layer:** `src/lib/session.ts` (auth→data bridge), `src/lib/localDb.ts` (demo store, seeds exercises + default supplements + goals/profile), `src/lib/repo.ts` (generic backend↔demo CRUD), `src/lib/format.ts` (units/dates/uuid), `src/lib/useAsync.ts`, `src/lib/celebrate.ts` (confetti). Client seeds in `src/data/`.
 - **Profile context:** `src/features/profile/` — loads profile + goals app-wide (units, coach settings, nutrition targets).

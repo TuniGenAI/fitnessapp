@@ -16,7 +16,10 @@
 // ============================================================================
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const GEMINI_MODEL = "gemini-1.5-flash-latest";
+// `gemini-flash-latest` is a moving alias to Google's current flash model, so a
+// future model retirement won't 404 the way the pinned `gemini-1.5-flash-latest`
+// did (the 1.5 line was shut down and returned 404 for every request).
+const GEMINI_MODEL = "gemini-flash-latest";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",

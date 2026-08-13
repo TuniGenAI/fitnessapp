@@ -279,16 +279,18 @@ export async function scanFoodPhoto(
   mimeType: string,
 ): Promise<PhotoFood | null> {
   if (!usingBackend() || !supabase) return null;
-  try {
-    const { data, error } = await supabase.functions.invoke<{
-      food?: PhotoFood;
-      fallback?: boolean;
-    }>("food-photo", { body: { imageBase64, mimeType } });
-    if (error || !data || data.fallback || !data.food) return null;
-    return data.food;
-  } catch {
-    return null;
-  }
+  const { data, error } = await supabase.functions.invoke<{
+    food?: PhotoFood;
+    fallback?: boolean;
+    error?: string;
+  }>("food-photo", { body: { imageBase64, mimeType } });
+  if (error) throw new Error(`Couldn't reach the food-photo function (${error.message}).`);
+  if (data?.food) return data.food;
+  // The function ran but Gemini rejected the request — surface the real reason
+  // instead of silently falling back (this is what a bad key / quota / retired
+  // model looks like; a missing key returns fallback with no error → null).
+  if (data?.error) throw new Error(aiErrorHint(data.error));
+  return null;
 }
 
 /**
@@ -299,16 +301,29 @@ export async function scanFoodPhoto(
  */
 export async function describeMeal(text: string): Promise<PhotoFood | null> {
   if (!usingBackend() || !supabase) return null;
-  try {
-    const { data, error } = await supabase.functions.invoke<{
-      food?: PhotoFood;
-      fallback?: boolean;
-    }>("food-text", { body: { text } });
-    if (error || !data || data.fallback || !data.food) return null;
-    return data.food;
-  } catch {
-    return null;
-  }
+  const { data, error } = await supabase.functions.invoke<{
+    food?: PhotoFood;
+    fallback?: boolean;
+    error?: string;
+  }>("food-text", { body: { text } });
+  if (error) throw new Error(`Couldn't reach the food-text function (${error.message}).`);
+  if (data?.food) return data.food;
+  if (data?.error) throw new Error(aiErrorHint(data.error));
+  return null;
+}
+
+/** Turn the edge function's raw `gemini <status>` / error string into a hint
+ *  that points at the real cause. Keeps the actual code visible for debugging. */
+function aiErrorHint(err: string): string {
+  const m = err.match(/gemini (\d+)/);
+  const status = m ? Number(m[1]) : null;
+  if (status === 400 || status === 403)
+    return `AI rejected the request (${err}). Your Gemini API key is likely invalid or missing the Generative Language API — re-paste a fresh key in Settings.`;
+  if (status === 429)
+    return `AI is rate-limited / out of quota (${err}). Wait a bit or use a key with quota left.`;
+  if (status === 404)
+    return `AI model not found (${err}). The model name is out of date — this needs a code fix.`;
+  return `AI couldn't process this (${err}). Try again, or log it manually.`;
 }
 
 // ---- Water ------------------------------------------------------------------
