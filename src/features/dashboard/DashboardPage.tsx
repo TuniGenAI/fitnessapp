@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MacroRing } from "@/components/MacroRing";
-import { FlameIcon, DumbbellIcon, TrophyIcon, PlusIcon, DropletIcon } from "@/components/icons";
+import { FlameIcon, DumbbellIcon, TrophyIcon, PlusIcon, MinusIcon, DropletIcon } from "@/components/icons";
 import { Spinner } from "@/components/ui";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useProfile } from "@/features/profile/ProfileProvider";
@@ -133,9 +133,12 @@ export function DashboardPage() {
       : null;
 
   async function quickWater(ml: number) {
-    setWater((w) => w + ml);
+    // Clamp so the logged total never dips below zero when reducing.
+    const applied = Math.max(0, water + ml) - water;
+    if (applied === 0) return;
+    setWater((w) => w + applied);
     try {
-      await addWater(ml);
+      await addWater(applied);
     } catch {
       /* schema cache / offline — keep the optimistic value */
     }
@@ -253,6 +256,15 @@ export function DashboardPage() {
           />
         </div>
         <div className="mt-3 flex gap-2">
+          <button
+            onClick={() => quickWater(-250)}
+            disabled={water <= 0}
+            aria-label="Remove 250ml"
+            className="flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
+            style={{ background: "var(--color-surface-2)", color: "var(--color-muted)" }}
+          >
+            <MinusIcon className="h-4 w-4" />
+          </button>
           {[250, 500].map((ml) => (
             <button
               key={ml}

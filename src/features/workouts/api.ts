@@ -72,6 +72,35 @@ export async function createExercise(input: {
   });
 }
 
+/** Edit a custom exercise. Seeded (global) exercises have no `user_id` and can't be edited. */
+export async function updateExercise(
+  id: string,
+  patch: {
+    name?: string;
+    type?: ExerciseType;
+    muscle_group?: string;
+    secondary_muscles?: string[];
+  },
+): Promise<Exercise> {
+  return updateRow<Exercise>("exercises", id, {
+    ...(patch.name !== undefined ? { name: patch.name.trim() } : {}),
+    ...(patch.type !== undefined ? { type: patch.type } : {}),
+    ...(patch.muscle_group !== undefined ? { muscle_group: patch.muscle_group } : {}),
+    ...(patch.secondary_muscles !== undefined
+      ? { secondary_muscles: patch.secondary_muscles }
+      : {}),
+  });
+}
+
+/**
+ * Delete a custom exercise. The backend uses ON DELETE RESTRICT for program and
+ * set references, so an exercise that's already been logged or programmed can't
+ * be removed — the caller surfaces that error to the user.
+ */
+export async function deleteExercise(id: string): Promise<void> {
+  await deleteWhere("exercises", { id });
+}
+
 // ---- Programs ---------------------------------------------------------------
 export async function listPrograms(): Promise<Program[]> {
   return selectRows<Program>("programs", { user_id: requireUid() }, {

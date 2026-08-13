@@ -291,6 +291,26 @@ export async function scanFoodPhoto(
   }
 }
 
+/**
+ * Estimate a meal's total macros from a free-text description via the `food-text`
+ * edge function (Gemini). Returns null when unavailable (demo mode, no key,
+ * function not deployed, or the text isn't food) so the UI can fall back to
+ * manual entry — same contract as `scanFoodPhoto`.
+ */
+export async function describeMeal(text: string): Promise<PhotoFood | null> {
+  if (!usingBackend() || !supabase) return null;
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      food?: PhotoFood;
+      fallback?: boolean;
+    }>("food-text", { body: { text } });
+    if (error || !data || data.fallback || !data.food) return null;
+    return data.food;
+  } catch {
+    return null;
+  }
+}
+
 // ---- Water ------------------------------------------------------------------
 export async function getWaterMl(date = todayISO()): Promise<number> {
   try {

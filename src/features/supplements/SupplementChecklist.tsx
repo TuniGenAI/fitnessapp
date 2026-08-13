@@ -1,12 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Supplement } from "@/types";
 import { Spinner } from "@/components/ui";
-import { PillIcon, FlameIcon, CheckIcon } from "@/components/icons";
+import { PillIcon, FlameIcon, CheckIcon, PlusIcon, MinusIcon } from "@/components/icons";
 import { todayISO } from "@/lib/format";
 import {
   listSupplements,
-  getTakenMap,
-  toggleTaken,
+  getCountMap,
+  setCount,
   getAdherence,
 } from "./api";
 import { ManageStackSheet } from "./ManageStackSheet";
@@ -25,18 +25,22 @@ export function SupplementChecklist({
 }) {
   const [loading, setLoading] = useState(true);
   const [supps, setSupps] = useState<Supplement[]>([]);
-  const [taken, setTaken] = useState<Record<string, boolean>>({});
+  const [counts, setCounts] = useState<Record<string, number>>({});
   const [streak, setStreak] = useState(0);
   const [managing, setManaging] = useState(false);
+  // Mirror of `counts` updated synchronously in handlers so rapid +/- taps
+  // (which fire before a re-render) each build on the latest value.
+  const countsRef = useRef<Record<string, number>>({});
 
   const load = useCallback(async () => {
     const [list, map, adherence] = await Promise.all([
       listSupplements(false),
-      getTakenMap(date),
+      getCountMap(date),
       getAdherence(),
     ]);
     setSupps(list);
-    setTaken(map);
+    countsRef.current = map;
+    setCounts(map);
     setStreak(adherence.streak);
     setLoading(false);
   }, [date]);
@@ -45,16 +49,20 @@ export function SupplementChecklist({
     load();
   }, [load]);
 
-  async function toggle(id: string) {
-    const next = !taken[id];
-    setTaken((t) => ({ ...t, [id]: next })); // optimistic
-    await toggleTaken(id, date, next);
+  async function setServings(id: string, next: number) {
+    const clamped = Math.max(0, Math.round(next));
+    countsRef.current = { ...countsRef.current, [id]: clamped };
+    setCounts(countsRef.current); // optimistic
+    await setCount(id, clamped, date);
     onChange?.();
     // refresh streak in the background
     getAdherence().then((a) => setStreak(a.streak));
   }
 
-  const doneCount = supps.filter((s) => taken[s.id]).length;
+  const adjust = (id: string, delta: number) =>
+    setServings(id, (countsRef.current[id] ?? 0) + delta);
+
+  const doneCount = supps.filter((s) => (counts[s.id] ?? 0) > 0).length;
 
   return (
     <section className="card p-4">
@@ -95,33 +103,65 @@ export function SupplementChecklist({
       ) : (
         <ul className="mt-3 space-y-2">
           {supps.map((s) => {
-            const done = taken[s.id];
+            const count = counts[s.id] ?? 0;
+            const done = count > 0;
+            const hasMacro = s.protein_g > 0 || s.calories > 0;
             return (
               <li key={s.id}>
-                <button
-                  onClick={() => toggle(s.id)}
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left"
+                <div
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5"
                   style={{ background: "var(--color-surface-2)" }}
                 >
-                  <span
-                    className="flex h-6 w-6 items-center justify-center rounded-full border-2"
-                    style={{
-                      borderColor: done ? "var(--color-accent)" : "var(--color-line)",
-                      background: done ? "var(--color-accent)" : "transparent",
-                      color: "#0b0f1a",
-                    }}
+                  <button
+                    onClick={() => setServings(s.id, count > 0 ? 0 : 1)}
+                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    aria-label={done ? `Mark ${s.name} not taken` : `Mark ${s.name} taken`}
                   >
-                    {done && <CheckIcon className="h-3.5 w-3.5" />}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className={done ? "text-muted line-through" : ""}>{s.name}</span>
-                    {(s.protein_g > 0 || s.calories > 0) && (
-                      <span className="ml-1 text-xs text-muted">
-                        {s.protein_g > 0 ? `+${s.protein_g}g protein` : `+${s.calories} kcal`}
+                    <span
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2"
+                      style={{
+                        borderColor: done ? "var(--color-accent)" : "var(--color-line)",
+                        background: done ? "var(--color-accent)" : "transparent",
+                        color: "#0b0f1a",
+                      }}
+                    >
+                      {done && <CheckIcon className="h-3.5 w-3.5" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={done ? "text-muted line-through" : ""}>{s.name}</span>
+                      {hasMacro && (
+                        <span className="ml-1 text-xs text-muted">
+                          {s.protein_g > 0 ? `+${s.protein_g}g protein` : `+${s.calories} kcal`}
+                          {count > 1 ? ` ×${count}` : ""}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+
+                  {done && (
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        onClick={() => adjust(s.id, -1)}
+                        aria-label={`One less ${s.name}`}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg"
+                        style={{ background: "var(--color-surface)", color: "var(--color-muted)" }}
+                      >
+                        <MinusIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <span className="w-5 text-center text-sm font-bold tabular-nums">
+                        {count}
                       </span>
-                    )}
-                  </span>
-                </button>
+                      <button
+                        onClick={() => adjust(s.id, 1)}
+                        aria-label={`One more ${s.name}`}
+                        className="flex h-7 w-7 items-center justify-center rounded-lg"
+                        style={{ background: "var(--color-surface)", color: "var(--color-accent)" }}
+                      >
+                        <PlusIcon className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               </li>
             );
           })}

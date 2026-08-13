@@ -68,6 +68,11 @@ export async function listLogs(date = todayISO()): Promise<SupplementLog[]> {
   });
 }
 
+/** Effective servings taken for a log row (a not-taken row counts as 0). */
+function effectiveCount(l: SupplementLog): number {
+  return l.taken ? Math.max(0, l.count ?? 1) : 0;
+}
+
 /** Map of supplement_id → taken? for a date. */
 export async function getTakenMap(date = todayISO()): Promise<Record<string, boolean>> {
   const logs = await listLogs(date);
@@ -76,44 +81,68 @@ export async function getTakenMap(date = todayISO()): Promise<Record<string, boo
   return map;
 }
 
-/** Toggle a supplement's taken state for a date (upsert the log row). */
-export async function toggleTaken(
+/** Map of supplement_id → servings taken for a date (0 when not taken). */
+export async function getCountMap(date = todayISO()): Promise<Record<string, number>> {
+  const logs = await listLogs(date);
+  const map: Record<string, number> = {};
+  for (const l of logs) map[l.supplement_id] = effectiveCount(l);
+  return map;
+}
+
+/**
+ * Set how many servings of a supplement were taken on a date (upsert the row).
+ * `count` is clamped to >= 0; `taken` mirrors count > 0 so adherence stays valid.
+ * Returns the stored count.
+ */
+export async function setCount(
   supplementId: string,
+  count: number,
   date = todayISO(),
-  taken?: boolean,
-): Promise<boolean> {
+): Promise<number> {
   const uid = requireUid();
+  const next = Math.max(0, Math.round(count));
   const logs = await listLogs(date);
   const existing = logs.find((l) => l.supplement_id === supplementId);
-  const next = taken ?? !(existing?.taken ?? false);
+  const patch = { taken: next > 0, count: next };
   if (existing) {
-    await updateRow("supplement_logs", existing.id, { taken: next });
+    await updateRow("supplement_logs", existing.id, patch);
   } else {
     await insertRow("supplement_logs", {
       user_id: uid,
       supplement_id: supplementId,
       log_date: date,
-      taken: next,
+      ...patch,
     });
   }
   return next;
 }
 
-/** Macros contributed by supplements marked taken on a date. */
+/** Toggle a supplement between 0 and 1 serving for a date. */
+export async function toggleTaken(
+  supplementId: string,
+  date = todayISO(),
+  taken?: boolean,
+): Promise<boolean> {
+  const logs = await listLogs(date);
+  const existing = logs.find((l) => l.supplement_id === supplementId);
+  const next = taken ?? !(existing?.taken ?? false);
+  await setCount(supplementId, next ? 1 : 0, date);
+  return next;
+}
+
+/** Macros contributed by supplements taken on a date, scaled by servings. */
 export async function getSupplementMacros(date = todayISO()): Promise<Macros> {
-  const [supps, taken] = await Promise.all([listSupplements(true), getTakenMap(date)]);
-  return supps.reduce<Macros>(
-    (t, s) =>
-      taken[s.id]
-        ? {
-            calories: t.calories + s.calories,
-            protein_g: t.protein_g + s.protein_g,
-            carbs_g: t.carbs_g + s.carbs_g,
-            fat_g: t.fat_g + s.fat_g,
-          }
-        : t,
-    { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 },
-  );
+  const [supps, counts] = await Promise.all([listSupplements(true), getCountMap(date)]);
+  return supps.reduce<Macros>((t, s) => {
+    const n = counts[s.id] ?? 0;
+    if (n <= 0) return t;
+    return {
+      calories: t.calories + s.calories * n,
+      protein_g: t.protein_g + s.protein_g * n,
+      carbs_g: t.carbs_g + s.carbs_g * n,
+      fat_g: t.fat_g + s.fat_g * n,
+    };
+  }, { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
 }
 
 // ---- Adherence --------------------------------------------------------------

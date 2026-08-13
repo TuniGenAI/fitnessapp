@@ -559,6 +559,7 @@ export interface Database {
           supplement_id: string;
           log_date: string;
           taken: boolean;
+          count: number;
           created_at: string;
         },
         {
@@ -567,10 +568,12 @@ export interface Database {
           supplement_id: string;
           log_date?: string;
           taken?: boolean;
+          count?: number;
           created_at?: string;
         },
         {
           taken?: boolean;
+          count?: number;
           log_date?: string;
         }
       >;

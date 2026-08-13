@@ -11,10 +11,11 @@ import {
   saveOffFood,
   deleteFood,
   scanFoodPhoto,
+  describeMeal,
   type Macros,
 } from "./api";
 
-type Tab = "search" | "barcode" | "photo" | "saved" | "custom";
+type Tab = "search" | "barcode" | "photo" | "describe" | "saved" | "custom";
 
 interface Selectable {
   name: string;
@@ -23,6 +24,10 @@ interface Selectable {
   servingLabel?: string | null;
   off?: OffFood;
   foodId?: string | null;
+  /** Let the user rename this in the confirm step (AI-described meals). */
+  editableName?: boolean;
+  /** Offer a "save to my foods" toggle for a not-yet-saved custom item. */
+  savable?: boolean;
 }
 
 function guessMeal(): MealType {
@@ -71,6 +76,7 @@ export function AddFoodSheet({
             onChange={setTab}
             options={[
               { value: "search", label: "Search" },
+              { value: "describe", label: "Describe" },
               { value: "barcode", label: "Barcode" },
               { value: "photo", label: "Photo" },
               { value: "saved", label: "Saved" },
@@ -79,6 +85,7 @@ export function AddFoodSheet({
           />
           <div className="mt-4">
             {tab === "search" && <SearchTab onPick={setSelected} />}
+            {tab === "describe" && <DescribeTab onPick={setSelected} />}
             {tab === "barcode" && <BarcodeTab onPick={setSelected} />}
             {tab === "photo" && <PhotoTab onPick={setSelected} />}
             {tab === "saved" && <SavedTab onPick={setSelected} />}
@@ -401,6 +408,77 @@ function PhotoTab({ onPick }: { onPick: (s: Selectable) => void }) {
   );
 }
 
+function DescribeTab({ onPick }: { onPick: (s: Selectable) => void }) {
+  const [text, setText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function run() {
+    if (!text.trim()) return;
+    setLoading(true);
+    setMsg(null);
+    try {
+      const food = await describeMeal(text.trim());
+      if (!food) {
+        setMsg(
+          "Describe needs the food-text function deployed + a Gemini key in Settings (live app only). Meanwhile, use Search or Custom.",
+        );
+        return;
+      }
+      onPick({
+        name: food.name,
+        perServing: {
+          calories: food.calories,
+          protein_g: food.protein_g,
+          carbs_g: food.carbs_g,
+          fat_g: food.fat_g,
+        },
+        servingLabel: "1 serving",
+        editableName: true,
+        savable: true,
+      });
+    } catch (e) {
+      setMsg(String((e as Error).message));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          run();
+        }}
+        className="space-y-2"
+      >
+        <textarea
+          autoFocus
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={3}
+          placeholder="Describe your meal — e.g. “2 scrambled eggs, 2 toast with butter, a banana, black coffee”"
+          className="w-full resize-none rounded-xl px-3 py-2.5 text-sm outline-none"
+          style={{ background: "var(--color-surface-2)" }}
+        />
+        <Button block type="submit" disabled={loading || !text.trim()}>
+          {loading ? "Estimating…" : "Estimate macros"}
+        </Button>
+      </form>
+      <p className="text-xs text-muted">
+        Gemini estimates the total macros; you can rename it, save it, and confirm before logging.
+      </p>
+      {loading && <Spinner />}
+      {msg && (
+        <p className="text-xs" style={{ color: "var(--color-carbs)" }}>
+          {msg}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function SavedTab({ onPick }: { onPick: (s: Selectable) => void }) {
   const [foods, setFoods] = useState<Food[] | null>(null);
 
@@ -540,7 +618,10 @@ function ServingStep({
   const [servings, setServings] = useState(1);
   const [meal, setMeal] = useState<MealType>(guessMeal());
   const [saveIt, setSaveIt] = useState(false);
+  const [name, setName] = useState(item.name);
   const [busy, setBusy] = useState(false);
+
+  const canSave = Boolean(item.off || item.savable);
 
   const total = {
     calories: Math.round(item.perServing.calories * servings),
@@ -551,13 +632,29 @@ function ServingStep({
 
   return (
     <div className="space-y-4">
-      <div className="card-2 p-3">
-        <p className="font-semibold">{item.name}</p>
-        <p className="text-xs text-muted">
-          {item.brand ? item.brand + " · " : ""}
-          {item.servingLabel ?? "1 serving"} · {item.perServing.calories} kcal each
-        </p>
-      </div>
+      {item.editableName ? (
+        <div>
+          <p className="mb-1.5 text-xs font-semibold text-muted">Name</p>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Meal name"
+            className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
+            style={{ background: "var(--color-surface-2)" }}
+          />
+          <p className="mt-1.5 text-xs text-muted">
+            {item.servingLabel ?? "1 serving"} · {item.perServing.calories} kcal each
+          </p>
+        </div>
+      ) : (
+        <div className="card-2 p-3">
+          <p className="font-semibold">{item.name}</p>
+          <p className="text-xs text-muted">
+            {item.brand ? item.brand + " · " : ""}
+            {item.servingLabel ?? "1 serving"} · {item.perServing.calories} kcal each
+          </p>
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-4">
         <span className="text-sm font-medium">Servings</span>
@@ -578,7 +675,7 @@ function ServingStep({
         <Tot label="F" v={total.fat_g} />
       </div>
 
-      {item.off && (
+      {canSave && (
         <label className="flex items-center gap-2 text-sm text-muted">
           <input type="checkbox" checked={saveIt} onChange={(e) => setSaveIt(e.target.checked)} />
           Save to my foods for quick re-logging
@@ -592,17 +689,27 @@ function ServingStep({
         <Button
           block
           variant="accent"
-          disabled={busy}
+          disabled={busy || !name.trim()}
           onClick={async () => {
             setBusy(true);
             try {
               let foodId = item.foodId ?? null;
-              if (item.off && saveIt) {
+              if (saveIt && item.off) {
                 const saved = await saveOffFood(item.off);
+                foodId = saved.id;
+              } else if (saveIt && item.savable) {
+                const saved = await createFood({
+                  name: name.trim(),
+                  serving_label: item.servingLabel ?? null,
+                  calories: item.perServing.calories,
+                  protein_g: item.perServing.protein_g,
+                  carbs_g: item.perServing.carbs_g,
+                  fat_g: item.perServing.fat_g,
+                });
                 foodId = saved.id;
               }
               await logFood({
-                name: item.name,
+                name: name.trim(),
                 perServing: item.perServing,
                 servings,
                 meal_type: meal,
