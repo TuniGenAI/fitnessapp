@@ -427,6 +427,29 @@ export async function getExerciseHistory(
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 
+/** Total working-set volume per muscle group over the last `days` days. */
+export async function getMuscleVolume(
+  days = 30,
+): Promise<{ muscle: string; volume: number }[]> {
+  const uid = requireUid();
+  const [sets, exercises] = await Promise.all([
+    selectRows<WorkoutSet>("workout_sets", { user_id: uid }),
+    listExercises(),
+  ]);
+  const muscleByEx = new Map(exercises.map((e) => [e.id, e.muscle_group]));
+  const cutoff = Date.now() - days * 86400000;
+  const agg = new Map<string, number>();
+  for (const s of sets) {
+    if (s.is_warmup) continue;
+    if (new Date(s.logged_at).getTime() < cutoff) continue;
+    const muscle = muscleByEx.get(s.exercise_id) ?? "other";
+    agg.set(muscle, (agg.get(muscle) ?? 0) + s.weight_kg * s.reps);
+  }
+  return [...agg.entries()]
+    .map(([muscle, volume]) => ({ muscle, volume: Math.round(volume) }))
+    .sort((a, b) => b.volume - a.volume);
+}
+
 // ---- Personal records -------------------------------------------------------
 export async function listPRs(exerciseId?: string): Promise<PersonalRecord[]> {
   const filter: Record<string, unknown> = { user_id: requireUid() };

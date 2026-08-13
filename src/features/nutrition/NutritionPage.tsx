@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import type { Food, FoodLog, MealType } from "@/types";
 import { useProfile } from "@/features/profile/ProfileProvider";
 import { MacroRing } from "@/components/MacroRing";
@@ -27,6 +27,8 @@ import {
 } from "./api";
 import { AddFoodSheet } from "./AddFoodSheet";
 import { GoalsEditor } from "./GoalsEditor";
+
+const MacroTrends = lazy(() => import("./MacroTrends"));
 
 const MEAL_ORDER: MealType[] = ["breakfast", "lunch", "dinner", "snack"];
 const MEAL_LABEL: Record<MealType, string> = {
@@ -145,6 +147,13 @@ export function NutritionPage() {
               ))}
             </div>
           </section>
+
+          {/* 7-day calorie trend */}
+          {hasGoals && (
+            <Suspense fallback={null}>
+              <MacroTrends target={goals?.calorie_target ?? null} version={logs.length} />
+            </Suspense>
+          )}
 
           {/* Log food */}
           <Button block onClick={() => setAdding(true)}>

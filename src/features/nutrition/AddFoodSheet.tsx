@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { IScannerControls } from "@zxing/browser";
 import type { Food, MealType } from "@/types";
 import { Sheet, Button, Segmented, Stepper, Spinner } from "@/components/ui";
-import { SearchIcon, CameraIcon, PlusIcon, TrashIcon } from "@/components/icons";
+import { SearchIcon, CameraIcon, PlusIcon, TrashIcon, XIcon } from "@/components/icons";
 import { searchFoods, lookupBarcode, type OffFood } from "./off";
 import {
   listFoods,
@@ -9,10 +10,11 @@ import {
   createFood,
   saveOffFood,
   deleteFood,
+  scanFoodPhoto,
   type Macros,
 } from "./api";
 
-type Tab = "search" | "barcode" | "saved" | "custom";
+type Tab = "search" | "barcode" | "photo" | "saved" | "custom";
 
 interface Selectable {
   name: string;
@@ -70,6 +72,7 @@ export function AddFoodSheet({
             options={[
               { value: "search", label: "Search" },
               { value: "barcode", label: "Barcode" },
+              { value: "photo", label: "Photo" },
               { value: "saved", label: "Saved" },
               { value: "custom", label: "Custom" },
             ]}
@@ -77,6 +80,7 @@ export function AddFoodSheet({
           <div className="mt-4">
             {tab === "search" && <SearchTab onPick={setSelected} />}
             {tab === "barcode" && <BarcodeTab onPick={setSelected} />}
+            {tab === "photo" && <PhotoTab onPick={setSelected} />}
             {tab === "saved" && <SavedTab onPick={setSelected} />}
             {tab === "custom" && <CustomTab onPick={setSelected} />}
           </div>
@@ -207,13 +211,16 @@ function BarcodeTab({ onPick }: { onPick: (s: Selectable) => void }) {
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [camError, setCamError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const controlsRef = useRef<IScannerControls | null>(null);
 
-  async function run() {
-    if (!code.trim()) return;
+  async function lookup(value: string) {
     setLoading(true);
     setNotFound(false);
     try {
-      const food = await lookupBarcode(code);
+      const food = await lookupBarcode(value);
       if (food) onPick(offToSelectable(food));
       else setNotFound(true);
     } finally {
@@ -221,35 +228,90 @@ function BarcodeTab({ onPick }: { onPick: (s: Selectable) => void }) {
     }
   }
 
+  function stopScan() {
+    controlsRef.current?.stop();
+    controlsRef.current = null;
+    setScanning(false);
+  }
+
+  async function startScan() {
+    setCamError(null);
+    setScanning(true);
+    try {
+      // Load the ~450 kB scanner lib only when the camera is actually used.
+      const { BrowserMultiFormatReader } = await import("@zxing/browser");
+      const reader = new BrowserMultiFormatReader();
+      controlsRef.current = await reader.decodeFromVideoDevice(
+        undefined,
+        videoRef.current!,
+        (result, _err, controls) => {
+          if (result) {
+            controls.stop();
+            controlsRef.current = null;
+            setScanning(false);
+            const value = result.getText();
+            setCode(value);
+            lookup(value);
+          }
+        },
+      );
+    } catch (e) {
+      setCamError(
+        "Couldn't start the camera. Grant camera permission, or type the number below.",
+      );
+      setScanning(false);
+      void e;
+    }
+  }
+
+  useEffect(() => () => stopScan(), []);
+
   return (
     <div className="space-y-3">
-      <div
-        className="flex items-center gap-2 rounded-xl border border-dashed p-3 text-xs text-muted"
-        style={{ borderColor: "var(--color-line)" }}
-      >
-        <CameraIcon className="h-5 w-5 shrink-0" />
-        <span>
-          Type a barcode number to look it up in Open Food Facts. (Live camera
-          scanning is a planned enhancement.)
-        </span>
-      </div>
+      {scanning ? (
+        <div className="relative overflow-hidden rounded-xl" style={{ background: "#000" }}>
+          {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+          <video ref={videoRef} className="h-56 w-full object-cover" playsInline muted />
+          <button
+            onClick={stopScan}
+            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full text-white"
+            style={{ background: "rgba(0,0,0,0.5)" }}
+            aria-label="Stop scanning"
+          >
+            <XIcon className="h-5 w-5" />
+          </button>
+          <div
+            className="pointer-events-none absolute inset-x-8 top-1/2 h-0.5 -translate-y-1/2"
+            style={{ background: "var(--color-accent)" }}
+          />
+        </div>
+      ) : (
+        <Button variant="subtle" block onClick={startScan} style={{ color: "var(--color-brand)" }}>
+          <CameraIcon className="h-4 w-4" /> Scan with camera
+        </Button>
+      )}
+      {camError && (
+        <p className="text-xs" style={{ color: "var(--color-carbs)" }}>
+          {camError}
+        </p>
+      )}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          run();
+          if (code.trim()) lookup(code.trim());
         }}
         className="flex items-center gap-2"
       >
         <input
-          autoFocus
           inputMode="numeric"
           value={code}
           onChange={(e) => setCode(e.target.value)}
-          placeholder="e.g. 737628064502"
+          placeholder="…or type a barcode number"
           className="w-full rounded-xl px-3 py-2.5 text-sm outline-none"
           style={{ background: "var(--color-surface-2)" }}
         />
-        <Button type="submit" disabled={loading}>
+        <Button type="submit" disabled={loading || !code.trim()}>
           Look up
         </Button>
       </form>
@@ -257,6 +319,82 @@ function BarcodeTab({ onPick }: { onPick: (s: Selectable) => void }) {
       {notFound && (
         <p className="text-sm" style={{ color: "var(--color-protein)" }}>
           No product for that barcode. Try search or a custom food.
+        </p>
+      )}
+    </div>
+  );
+}
+
+async function fileToBase64(file: File): Promise<{ base64: string; mime: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string; // data:<mime>;base64,<data>
+      const comma = result.indexOf(",");
+      resolve({ base64: result.slice(comma + 1), mime: file.type || "image/jpeg" });
+    };
+    reader.onerror = () => reject(new Error("Could not read the image"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function PhotoTab({ onPick }: { onPick: (s: Selectable) => void }) {
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function onFile(file: File | undefined) {
+    if (!file) return;
+    setLoading(true);
+    setMsg(null);
+    try {
+      const { base64, mime } = await fileToBase64(file);
+      const food = await scanFoodPhoto(base64, mime);
+      if (!food) {
+        setMsg(
+          "Photo scan needs the food-photo function deployed + a Gemini key in Settings (live app only). Meanwhile, use Search or Custom.",
+        );
+        return;
+      }
+      onPick({
+        name: food.name,
+        perServing: {
+          calories: food.calories,
+          protein_g: food.protein_g,
+          carbs_g: food.carbs_g,
+          fat_g: food.fat_g,
+        },
+        servingLabel: "1 photo portion",
+      });
+    } catch (e) {
+      setMsg(String((e as Error).message));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <label
+        className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed p-6 text-center"
+        style={{ borderColor: "var(--color-line)" }}
+      >
+        <CameraIcon className="h-8 w-8" style={{ color: "var(--color-brand)" }} />
+        <span className="text-sm font-semibold">Snap or choose a food photo</span>
+        <span className="text-xs text-muted">
+          Gemini estimates the macros; you confirm before logging.
+        </span>
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={(e) => onFile(e.target.files?.[0])}
+        />
+      </label>
+      {loading && <Spinner />}
+      {msg && (
+        <p className="text-xs" style={{ color: "var(--color-carbs)" }}>
+          {msg}
         </p>
       )}
     </div>

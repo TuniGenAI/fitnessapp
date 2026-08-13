@@ -55,13 +55,13 @@ Ordered so the app is **runnable early** and each step builds on a working base.
 ## Milestone 4 — Nutrition (Goal #2 core) ✅ (photo-AI + live camera scan deferred)
 - [x] **Goals:** TDEE **calculator** (Mifflin-St Jeor + activity + cut/bulk/maintain) **and** manual override → calorie/macro targets. *(`GoalsEditor.tsx`, `tdee.ts`)*
 - [x] **Food search** via **Open Food Facts** (keyless); add with serving size → macros. *(`off.ts`, `AddFoodSheet.tsx`)*
-- [~] **Barcode** → Open Food Facts lookup by **number entry** (works today). *Live camera scanning* needs a scanner lib (`@zxing/browser`) — deferred, clearly labeled in the UI.
-- [ ] **Photo → AI scan** (Gemini vision) — deferred; belongs with the coach edge function once a Gemini key is live.
+- [x] **Barcode** → Open Food Facts lookup, with **live camera scanning** (`@zxing/browser`, loaded on demand) + manual number-entry fallback.
+- [x] **Photo → AI scan** — `food-photo` edge function (Gemini vision) estimates macros to confirm; graceful fallback when no key. **(you)** deploy: `supabase functions deploy food-photo`.
 - [x] **Custom foods & saved meals** for one-tap logging.
 - [x] **Water** quick-add (new `water_logs` table — **(you)** apply the migration, below).
 - [x] Daily **macro rings** roll-up (food **+** checked supplements).
 
-**Exit check:** ✅ MET for search/barcode/custom/saved-meal logging + water; rings update against goals (verified in browser: OFF "banana" search → log → rings updated exactly; TDEE math correct; water quick-add). Photo-AI + live camera scan are the two parked sub-items.
+**Exit check:** ✅ MET — all four logging paths built (photo, search, barcode+camera, saved meals) + custom + water; rings update against goals (verified in browser: OFF "banana" search → log → rings updated exactly; TDEE math correct; water quick-add; camera scan + photo tabs render with graceful fallback). Photo-AI + camera scan need the food-photo function deployed + a Gemini key to produce real results.
 
 ---
 
@@ -89,11 +89,11 @@ Ordered so the app is **runnable early** and each step builds on a working base.
 - [x] **Today dashboard:** live macro rings (food+supps), water, today's session card, coach line, supplement checklist. *(`DashboardPage.tsx`)*
 - [x] **Weekly strip:** days trained this week, calories, macro adherence %.
 - [x] **PR celebrations** (confetti) in the logger.
-- [x] **Progress charts:** per-exercise est. 1RM (Train → Progress) + bodyweight trend (Body). *(muscle-group + macro-adherence-over-time charts parked.)*
+- [x] **Progress charts:** per-exercise est. 1RM, **volume-by-muscle (30 d)**, **calorie adherence (7 d)**, bodyweight trend.
 - [x] **Streaks & beat-last-time prompts** surfaced (supplement streak, "last time" + suggestions, per-set reactions).
-- [ ] Mobile polish extras: **PWA install prompt**, offline logging, code-splitting the recharts bundle. *(nice-to-have; parked)*
+- [x] Mobile polish: **PWA install prompt** (native + iOS instructions), **code-splitting** (main bundle 849 → ~130 kB; charts + scanner lazy-loaded). *(Offline logging still parked.)*
 
-**Exit check:** ✅ MET — verified in browser: dashboard shows today's session + coach line + live rings/water/supplements; confetti fires on PRs; charts reflect real logged data.
+**Exit check:** ✅ MET — verified in browser: dashboard shows today's session + coach line + live rings/water/supplements; confetti fires on PRs; per-exercise/muscle/calorie/bodyweight charts reflect real logged data.
 
 ---
 

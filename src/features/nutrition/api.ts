@@ -2,14 +2,15 @@
  * Nutrition data access — saved/custom foods, food logging, saved meals, water,
  * and daily roll-ups. Backend ↔ demo via `@/lib/repo`.
  */
-import { getUserId } from "@/lib/session";
+import { supabase } from "@/lib/supabase";
+import { getUserId, usingBackend } from "@/lib/session";
 import {
   selectRows,
   insertRow,
   insertRows,
   deleteWhere,
 } from "@/lib/repo";
-import { todayISO } from "@/lib/format";
+import { todayISO, isoDaysAgo } from "@/lib/format";
 import type {
   Food,
   FoodLog,
@@ -153,6 +154,33 @@ export async function getFoodTotals(date = todayISO()): Promise<Macros> {
   return sumFoodLogs(await listFoodLogs(date));
 }
 
+/** Per-day calorie + protein totals over the last `days` days (oldest→newest). */
+export async function getDailyHistory(
+  days = 7,
+): Promise<{ date: string; calories: number; protein_g: number }[]> {
+  const rows = await selectRows<FoodLog>("food_logs", { user_id: requireUid() });
+  const cal = new Map<string, number>();
+  const pro = new Map<string, number>();
+  const dates: string[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const d = isoDaysAgo(i);
+    dates.push(d);
+    cal.set(d, 0);
+    pro.set(d, 0);
+  }
+  for (const r of rows) {
+    if (cal.has(r.log_date)) {
+      cal.set(r.log_date, (cal.get(r.log_date) ?? 0) + r.calories);
+      pro.set(r.log_date, (pro.get(r.log_date) ?? 0) + r.protein_g);
+    }
+  }
+  return dates.map((date) => ({
+    date,
+    calories: Math.round(cal.get(date) ?? 0),
+    protein_g: Math.round(pro.get(date) ?? 0),
+  }));
+}
+
 // ---- Saved meals ------------------------------------------------------------
 export interface MealWithItems {
   meal: Meal;
@@ -229,6 +257,37 @@ export async function logMeal(mealId: string, date = todayISO()): Promise<void> 
       food_id: it.food.id,
       log_date: date,
     });
+  }
+}
+
+// ---- Photo → AI macro estimate ---------------------------------------------
+export interface PhotoFood {
+  name: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+}
+
+/**
+ * Estimate macros from a food photo via the `food-photo` edge function (Gemini
+ * vision). Returns null when unavailable (demo mode, no key, function not
+ * deployed, or an error) so the UI can fall back to manual entry.
+ */
+export async function scanFoodPhoto(
+  imageBase64: string,
+  mimeType: string,
+): Promise<PhotoFood | null> {
+  if (!usingBackend() || !supabase) return null;
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      food?: PhotoFood;
+      fallback?: boolean;
+    }>("food-photo", { body: { imageBase64, mimeType } });
+    if (error || !data || data.fallback || !data.food) return null;
+    return data.food;
+  } catch {
+    return null;
   }
 }
 

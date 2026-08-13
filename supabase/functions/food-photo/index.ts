@@ -1,0 +1,107 @@
+// ============================================================================
+// Supabase Edge Function: food-photo
+// ----------------------------------------------------------------------------
+// Photo → macro estimate, via Gemini vision — server-side so the key never
+// touches the browser (same pattern as the `coach` function). The client sends
+// a base64 image; we ask Gemini for a compact JSON macro estimate and return it
+// for the user to confirm before logging.
+//
+// Graceful degradation: no key → { fallback: true } and the client tells the
+// user to add a Gemini key (or just log manually).
+//
+// DEPLOY (owner, one-time):  supabase functions deploy food-photo
+// ============================================================================
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const GEMINI_MODEL = "gemini-1.5-flash-latest";
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const PROMPT =
+  "You are a nutrition estimator. Estimate the macros of the food shown, for the " +
+  "portion visible in the image. Respond with ONLY compact JSON, no prose, no code " +
+  'fences: {"name":string,"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number}. ' +
+  "Use grams for macros and total kcal for the whole visible portion.";
+
+function json(obj: unknown, status = 200): Response {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { ...cors, "Content-Type": "application/json" },
+  });
+}
+
+Deno.serve(async (request: Request) => {
+  if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
+  try {
+    const authHeader = request.headers.get("Authorization") ?? "";
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return json({ error: "unauthorized" }, 401);
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("gemini_api_key")
+      .eq("id", user.id)
+      .maybeSingle();
+    const key = profile?.gemini_api_key ?? Deno.env.get("GEMINI_API_KEY");
+    if (!key) return json({ fallback: true });
+
+    const { imageBase64, mimeType } = (await request.json()) as {
+      imageBase64: string;
+      mimeType?: string;
+    };
+    if (!imageBase64) return json({ error: "no image" }, 400);
+
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                { text: PROMPT },
+                { inline_data: { mime_type: mimeType ?? "image/jpeg", data: imageBase64 } },
+              ],
+            },
+          ],
+          generationConfig: { temperature: 0.2, maxOutputTokens: 200 },
+        }),
+      },
+    );
+    if (!res.ok) {
+      return json({ fallback: true, error: `gemini ${res.status}` });
+    }
+    const data = await res.json();
+    const text: string = data?.candidates?.[0]?.content?.parts?.[0]?.text ?? "";
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) return json({ fallback: true, error: "no json" });
+    try {
+      const parsed = JSON.parse(match[0]);
+      return json({
+        food: {
+          name: String(parsed.name ?? "Estimated food"),
+          calories: Math.max(0, Math.round(Number(parsed.calories) || 0)),
+          protein_g: Math.max(0, Math.round(Number(parsed.protein_g) || 0)),
+          carbs_g: Math.max(0, Math.round(Number(parsed.carbs_g) || 0)),
+          fat_g: Math.max(0, Math.round(Number(parsed.fat_g) || 0)),
+        },
+      });
+    } catch {
+      return json({ fallback: true, error: "parse failed" });
+    }
+  } catch (e) {
+    return json({ fallback: true, error: String(e) }, 200);
+  }
+});

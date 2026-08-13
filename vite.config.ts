@@ -12,6 +12,20 @@ export default defineConfig({
       "@": fileURLToPath(new URL("./src", import.meta.url)),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the heavy libs into their own cached chunks; the charts chunk
+        // is only pulled in when a lazy-loaded chart mounts.
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          charts: ["recharts"],
+          supabase: ["@supabase/supabase-js"],
+          scanner: ["@zxing/browser", "@zxing/library"],
+        },
+      },
+    },
+  },
   plugins: [
     react(),
     tailwindcss(),

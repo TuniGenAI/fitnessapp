@@ -3,6 +3,8 @@ import {
   ResponsiveContainer,
   LineChart,
   Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -13,7 +15,7 @@ import { useWeightUnit } from "@/features/profile/ProfileProvider";
 import { EmptyState, Spinner } from "@/components/ui";
 import { ChartIcon, TrophyIcon } from "@/components/icons";
 import { toDisplayWeight, formatWeight, shortDate, trim } from "@/lib/format";
-import { listExercises, getExerciseHistory, getBestPRs } from "./api";
+import { listExercises, getExerciseHistory, getBestPRs, getMuscleVolume } from "./api";
 import {
   bestSet,
   estimatedOneRepMax,
@@ -55,6 +57,8 @@ export function ExerciseProgress() {
 
   return (
     <div className="space-y-4">
+      <MuscleVolumeChart unit={unit} />
+      <p className="text-sm font-bold uppercase tracking-wide text-muted">Per exercise</p>
       <div className="flex flex-wrap gap-1.5">
         {trained.map((e) => (
           <button
@@ -78,6 +82,59 @@ export function ExerciseProgress() {
           prs={prs.filter((p) => p.exercise_id === selected)}
         />
       )}
+    </div>
+  );
+}
+
+function title(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function MuscleVolumeChart({ unit }: { unit: "kg" | "lb" }) {
+  const [data, setData] = useState<{ muscle: string; volume: number }[] | null>(null);
+
+  useEffect(() => {
+    getMuscleVolume(30).then((rows) =>
+      setData(
+        rows.map((r) => ({
+          muscle: title(r.muscle),
+          volume: Math.round(toDisplayWeight(r.volume, unit)),
+        })),
+      ),
+    );
+  }, [unit]);
+
+  if (!data) return <Spinner />;
+  if (data.length === 0) return null;
+
+  return (
+    <div className="card p-4">
+      <p className="mb-2 text-sm font-bold uppercase tracking-wide text-muted">
+        Volume by muscle · last 30 days ({unit})
+      </p>
+      <ResponsiveContainer width="100%" height={Math.max(140, data.length * 34)}>
+        <BarChart data={data} layout="vertical" margin={{ top: 0, right: 12, bottom: 0, left: 8 }}>
+          <XAxis type="number" hide />
+          <YAxis
+            type="category"
+            dataKey="muscle"
+            width={64}
+            tick={{ fontSize: 11, fill: "var(--color-muted)" }}
+            tickLine={false}
+            axisLine={false}
+          />
+          <Tooltip
+            cursor={{ fill: "var(--color-surface-2)" }}
+            contentStyle={{
+              background: "var(--color-surface-2)",
+              border: "1px solid var(--color-line)",
+              borderRadius: 12,
+              fontSize: 12,
+            }}
+          />
+          <Bar dataKey="volume" fill="var(--color-brand)" radius={[0, 6, 6, 0]} name="Volume" />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   );
 }

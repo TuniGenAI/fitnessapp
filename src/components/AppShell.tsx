@@ -7,6 +7,7 @@ import {
   HeartPulseIcon,
   SettingsIcon,
 } from "./icons";
+import { InstallPrompt } from "./InstallPrompt";
 
 interface Tab {
   to: string;
@@ -29,6 +30,8 @@ export function AppShell() {
       <main className="flex-1 px-4 pb-28 pt-4">
         <Outlet />
       </main>
+
+      <InstallPrompt />
 
       <nav
         className="fixed inset-x-0 bottom-0 z-20 border-t"

@@ -10,7 +10,7 @@
 
 > **Two owner steps remain before the live (signed-in) site has full parity:**
 > 1. **Apply the new `water_logs` migration** — `supabase/migrations/20260813120400_add_water_logs.sql` (paste into the Supabase SQL Editor, same as the M1 files). Without it, water quick-add errors on the *live* site (demo mode is unaffected).
-> 2. **(Optional) AI coach** — deploy the edge function (`supabase functions deploy coach`) and paste a Gemini key in Settings. Until then the coach uses its rule-based fallback (fully functional).
+> 2. **(Optional) AI features** — deploy the edge functions (`supabase functions deploy coach` and `supabase functions deploy food-photo`) and paste a Gemini key in Settings. Until then the coach uses its rule-based fallback and photo-scan degrades to manual entry (both fully functional).
 
 ### What M2–M7 added (all local-first: Supabase when signed in, localStorage in demo)
 - **Data layer:** `src/lib/session.ts` (auth→data bridge), `src/lib/localDb.ts` (demo store, seeds exercises + default supplements + goals/profile), `src/lib/repo.ts` (generic backend↔demo CRUD), `src/lib/format.ts` (units/dates/uuid), `src/lib/useAsync.ts`, `src/lib/celebrate.ts` (confetti). Client seeds in `src/data/`.
@@ -25,7 +25,14 @@
 
 **Verification (in-browser, demo mode, zero console errors):** built PPL from template → ran a Push session → PR detection fired weight+volume (not reps) with confetti → history/progress correct; TDEE math correct; OFF "banana" search→log updated rings exactly; ticking Whey added +120 kcal/+24 g protein; body weigh-in saved with snapshot; Settings units/coach/key render.
 
-> **Parked (see TASKS.md):** photo→AI macro scan, live camera barcode scanning (needs `@zxing/browser`), muscle-group/adherence-over-time charts, PWA install prompt, recharts code-splitting (bundle ~850 kB).
+### Nice-to-haves — now built (2026-08-13)
+- **Code-splitting**: main bundle 849 → ~130 kB; `recharts` (charts) and `@zxing/browser` (scanner) are separate chunks, loaded on demand (charts via `React.lazy`, scanner via dynamic `import()` on first camera use).
+- **PWA install prompt** (`src/components/InstallPrompt.tsx`): native `beforeinstallprompt` where available + iOS "Add to Home Screen" steps; dismissible/remembered.
+- **Charts**: volume-by-muscle (30 d) + calorie adherence (7 d), alongside the existing 1RM and bodyweight-trend charts.
+- **Photo → AI macro scan**: `supabase/functions/food-photo/` (Gemini vision) + a Photo tab; **(you)** `supabase functions deploy food-photo`.
+- **Live camera barcode scanning**: `@zxing/browser` in the Barcode tab, with graceful fallback to manual entry when no camera/permission.
+
+> **Still parked:** offline logging with background sync.
 
 ### Milestone 1 built (2026-08-13)
 - **Full schema** in `supabase/migrations/` — 4 ordered SQL files covering all 18 tables (profiles, goals, programs/program_days/program_exercises, exercises, workouts/workout_sets, personal_records, foods, meals/meal_items, food_logs, supplement_templates/supplements, supplement_logs, body_metrics, coach_messages).

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { Exercise, Program, ProgramDay, Workout } from "@/types";
 import { PageHeader, Button, Segmented, Spinner, EmptyState } from "@/components/ui";
 import { DumbbellIcon, ListIcon, PlusIcon } from "@/components/icons";
@@ -13,7 +13,11 @@ import {
 import { ProgramBuilder } from "./ProgramBuilder";
 import { WorkoutLogger } from "./WorkoutLogger";
 import { WorkoutHistory } from "./WorkoutHistory";
-import { ExerciseProgress } from "./ExerciseProgress";
+
+// Charts pull in recharts — load that chunk only when the Progress tab opens.
+const ExerciseProgress = lazy(() =>
+  import("./ExerciseProgress").then((m) => ({ default: m.ExerciseProgress })),
+);
 
 type Tab = "plan" | "history" | "progress";
 
@@ -134,7 +138,9 @@ export function WorkoutsPage() {
       ) : tab === "history" ? (
         <WorkoutHistory />
       ) : (
-        <ExerciseProgress />
+        <Suspense fallback={<Spinner />}>
+          <ExerciseProgress />
+        </Suspense>
       )}
     </div>
   );
