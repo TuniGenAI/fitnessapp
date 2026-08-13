@@ -97,18 +97,25 @@ Ordered so the app is **runnable early** and each step builds on a working base.
 
 ---
 
-## Milestone 8 — Ship & verify
-- [ ] End-to-end pass on **iPhone (installed PWA)** and **web**: sign in, run a workout with coach, log food 4 ways, supplements, weigh-in — all syncing.
-- [ ] Confirm everything is on **free tiers ($0/month)**.
-- [ ] Confirm all **PRD §6 success criteria** met and **§9 constraints** honestly represented in-app.
-- [ ] Update `PRD.md` / `CLAUDE.md` / this file to reflect anything that changed during the build.
+## Milestone 8 — Ship & verify  (backend/infra done; only the on-device pass remains)
+- [ ] **(you)** End-to-end pass on **iPhone (installed PWA)**: sign in, run a workout with coach, log food (photo/search/barcode/saved), supplements, weigh-in — all syncing. *(Web + backend already verified live: schema `200`, both edge functions deployed, Gemini key set.)*
+- [x] On **free tiers ($0/month)** — Supabase free, Vercel Hobby, Open Food Facts (keyless), Gemini free tier.
+- [x] **PRD §9 constraints honestly represented in-app** — Body page carries the manual-now / future-sync note; coach + photo have non-AI fallbacks.
+- [x] Docs updated (`TASKS.md` / `HANDOFF.md` / `supabase/README.md`) to reflect the build. *(Re-check `PRD.md §6` success criteria during the iPhone pass.)*
+
+**Exit check:** web + backend verified live (deployed, functions up, water persists, RLS enforced). Final owner step is the installed-PWA run-through on iPhone.
 
 ---
 
 ## Later (not Phase 1) — parked
+- **Offline** logging with background sync *(the only deferred Phase-1 nice-to-have)*.
 - Apple **Shortcuts → backend bridge** for weight/body-fat auto-forward.
 - Live per-set coaching polish + coach persona/tone.
-- **Offline** logging with sync.
-- Train-day vs rest-day macro periodization (UI).
+- Train-day vs rest-day macro periodization (UI) — schema already supports rest-day goal columns.
 - Rest timers, supersets, RPE, richer analytics.
 - **Multi-user** opening + **native iOS app** (HealthKit scale sync).
+
+---
+
+## Status: Phase 1 COMPLETE & LIVE ✅ (2026-08-13)
+All milestones M0–M7 done; M8 backend/infra done with only the owner's on-device iPhone pass outstanding. App deployed at https://fitnessapp-mauve-nine.vercel.app, backend on Supabase (`yotsunlngoudmxowiviq`), edge functions `coach` + `food-photo` deployed, Gemini key set. $0/month. See `HANDOFF.md` for the full state + Runbook.

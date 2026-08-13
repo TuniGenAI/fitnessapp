@@ -8,13 +8,15 @@ This file is the home base for building and maintaining the Fitness App. It's wr
 
 ## 0. START HERE (for a fresh conversation)
 
-**If you're an AI assistant opening this project cold to start building, do this in order:**
+> **⚡ CURRENT STATUS (2026-08-13): Phase 1 is COMPLETE and LIVE.** All features (M0–M7) are built and deployed; backend, edge functions (`coach`, `food-photo`), and the Gemini key are live; `npm run build` is green. Only **Milestone 8** (the owner's on-device iPhone-PWA pass) and one parked item (offline logging) remain. **Read [`HANDOFF.md`](./HANDOFF.md) for the exact current state + a Runbook (deploy, migrations, the PostgREST schema-cache gotcha, type regen).** The steps below describe the original cold-start build order and are kept for history.
+
+**If you're an AI assistant opening this project cold, do this in order:**
 1. Read **this file** (stack, architecture, conventions, setup).
 2. Read [`PRD.md`](./PRD.md) (requirements — the source of truth for *what* to build).
-3. Read [`TASKS.md`](./TASKS.md) and **begin at Milestone 0**, top to bottom.
+3. Read [`TASKS.md`](./TASKS.md) for the milestone checklist (now mostly ✅) and [`HANDOFF.md`](./HANDOFF.md) for where things actually stand — **pick up from what's unchecked**, don't restart at Milestone 0.
 4. Steps marked **(you)** in TASKS.md need the owner to create a free account or paste a key — pause and guide them in plain language when you hit one.
 
-These three files contain the complete plan. No prior conversation is needed to begin.
+These files contain the complete plan and current state. No prior conversation is needed to continue.
 
 **App name:** intentionally **undecided** for now — placeholder is *"Fitness App"*. This does **not** block the build. When scaffolding, put the display name in **one central place** (the PWA manifest `name`/`short_name` in `vite.config.ts` and a single `APP_NAME` constant) so renaming later is a one-line change. Don't scatter the name through the code.
 
@@ -187,8 +189,18 @@ VITE_SUPABASE_ANON_KEY=...   # from step 6.2
 ## 9. Quick reference
 
 - **Product spec / requirements:** [`PRD.md`](./PRD.md)
-- **Build checklist:** [`TASKS.md`](./TASKS.md)
-- **Run locally:** `npm run dev`
+- **Build checklist:** [`TASKS.md`](./TASKS.md) · **Current state + Runbook:** [`HANDOFF.md`](./HANDOFF.md)
+- **Run locally:** `npm run dev` · **Build (must stay green):** `npm run build`
+- **Live app:** https://fitnessapp-mauve-nine.vercel.app (auto-deploys on push to `main`)
+- **Supabase project:** `yotsunlngoudmxowiviq` · **Edge functions:** `coach`, `food-photo` (deployed; read the per-user Gemini key server-side)
 - **Free accounts needed:** Supabase, Google (OAuth + Gemini key), Vercel
 - **Monthly cost (1 user):** $0
-- **Biggest known limits:** iPhone+PWA can't auto-read the Xiaomi scale (manual entry for v1); a personal AI subscription can't power the app (Gemini free key instead). See PRD §9.
+
+### Architecture that matters when editing
+- **Local-first data layer:** feature UI → each feature's `api.ts` → `@/lib/repo` + `@/lib/session`, which hit **Supabase when signed in** and the **localStorage demo store** (`@/lib/localDb.ts`) otherwise. This keeps the app fully clickable/verifiable in *demo mode* without Google OAuth. Keep new features on this pattern.
+- **Charts + scanner are code-split** — `recharts` loads via `React.lazy` when a chart mounts; `@zxing/browser` via dynamic `import()` on first camera use. Keep chart code behind lazy boundaries so the main bundle stays ~130 kB.
+- **Migrations gotcha:** a newly created table 404s over REST (`PGRST205`) until PostgREST's schema cache reloads — run `NOTIFY pgrst, 'reload schema';` or restart the project. Page loads are defensive (`Promise.allSettled` + `finally`) so one failing query can't blank a screen.
+
+### Biggest known product limits (per PRD §9)
+- iPhone+PWA can't auto-read the Xiaomi scale → **manual weigh-in entry** for v1 (honest note in the Body screen).
+- A personal AI subscription can't power the app → **Gemini free key** instead, called from an edge function; every AI feature has a non-AI fallback.
