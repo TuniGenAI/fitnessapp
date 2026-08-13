@@ -45,15 +45,14 @@ export function ProfileProvider({ children }: { children: ReactNode }) {
     }
     let alive = true;
     setLoading(true);
-    Promise.all([getProfile(), getGoals()]).then(
-      ([p, g]) => {
-        if (!alive) return;
-        setProfile(p);
-        setGoals(g);
-        setLoading(false);
-      },
-      () => alive && setLoading(false),
-    );
+    // Load independently: a failing goals read must NOT discard a good profile
+    // (or vice versa), otherwise a saved value looks lost on the next load.
+    Promise.allSettled([getProfile(), getGoals()]).then(([p, g]) => {
+      if (!alive) return;
+      if (p.status === "fulfilled") setProfile(p.value);
+      if (g.status === "fulfilled") setGoals(g.value);
+      setLoading(false);
+    });
     return () => {
       alive = false;
     };
