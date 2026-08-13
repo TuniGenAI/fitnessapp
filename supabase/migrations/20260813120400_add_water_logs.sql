@@ -42,3 +42,8 @@ begin
   end if;
 end;
 $$;
+
+-- Nudge PostgREST to reload its schema cache so the new table is queryable via
+-- the REST API immediately (otherwise the first calls 404 with PGRST205 until
+-- the cache refreshes on its own).
+notify pgrst, 'reload schema';

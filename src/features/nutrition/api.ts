@@ -234,11 +234,17 @@ export async function logMeal(mealId: string, date = todayISO()): Promise<void> 
 
 // ---- Water ------------------------------------------------------------------
 export async function getWaterMl(date = todayISO()): Promise<number> {
-  const rows = await selectRows<WaterLog>("water_logs", {
-    user_id: requireUid(),
-    log_date: date,
-  });
-  return rows.reduce((sum, r) => sum + r.ml, 0);
+  try {
+    const rows = await selectRows<WaterLog>("water_logs", {
+      user_id: requireUid(),
+      log_date: date,
+    });
+    return rows.reduce((sum, r) => sum + r.ml, 0);
+  } catch {
+    // e.g. water_logs migration not applied / PostgREST schema cache stale.
+    // Water is non-critical — degrade to 0 rather than blanking the page.
+    return 0;
+  }
 }
 
 export async function addWater(ml: number, date = todayISO()): Promise<void> {

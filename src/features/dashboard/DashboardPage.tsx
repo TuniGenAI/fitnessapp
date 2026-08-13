@@ -54,61 +54,70 @@ export function DashboardPage() {
   }, []);
 
   const load = useCallback(async () => {
-    const [food, supp, w, act, program, workouts] = await Promise.all([
-      getFoodTotals(),
-      getSupplementMacros(),
-      getWaterMl(),
-      getActiveWorkout(),
-      getActiveProgram(),
-      listWorkouts(50),
-    ]);
-    setFoodTotals(food);
-    setSuppTotals(supp);
-    setWater(w);
-    setActive(act);
+    try {
+      // allSettled so one failing query (e.g. a not-yet-cached table) can't
+      // blank the whole dashboard — each tile degrades independently.
+      const [food, supp, w, act, program, workouts] = await Promise.allSettled([
+        getFoodTotals(),
+        getSupplementMacros(),
+        getWaterMl(),
+        getActiveWorkout(),
+        getActiveProgram(),
+        listWorkouts(50),
+      ]);
+      if (food.status === "fulfilled") setFoodTotals(food.value);
+      if (supp.status === "fulfilled") setSuppTotals(supp.value);
+      if (w.status === "fulfilled") setWater(w.value);
+      if (act.status === "fulfilled") setActive(act.value);
 
-    // Trained this week (distinct local days with a completed workout, last 7d).
-    const weekAgo = todayISO(new Date(Date.now() - 6 * 86400000));
-    const days = new Set(
-      workouts
-        .filter((x) => x.completed_at && todayISO(new Date(x.started_at)) >= weekAgo)
-        .map((x) => todayISO(new Date(x.started_at))),
-    );
-    setTrainedThisWeek(days.size);
-
-    // Today's suggested session: first day of the active program.
-    let sess: TodaySession | null = null;
-    if (program) {
-      const ds = await listDays(program.id);
-      const day = ds[0] ?? null;
-      if (day) {
-        const [pex, lib] = await Promise.all([listProgramExercises(day.id), listExercises()]);
-        const libMap = new Map(lib.map((e) => [e.id, e]));
-        sess = {
-          dayId: day.id,
-          dayName: day.name,
-          exerciseNames: pex.map((p) => libMap.get(p.exercise_id)?.name).filter(Boolean) as string[],
-        };
+      // Trained this week (distinct local days with a completed workout, last 7d).
+      if (workouts.status === "fulfilled") {
+        const weekAgo = todayISO(new Date(Date.now() - 6 * 86400000));
+        const days = new Set(
+          workouts.value
+            .filter((x) => x.completed_at && todayISO(new Date(x.started_at)) >= weekAgo)
+            .map((x) => todayISO(new Date(x.started_at))),
+        );
+        setTrainedThisWeek(days.size);
       }
-    }
-    setSession(sess);
 
-    // Coach briefing (rule-based unless AI configured).
-    if (sess) {
-      const { text } = await getBriefing(
-        {
-          dayName: sess.dayName,
-          firstName,
-          exercises: sess.exerciseNames.map((name) => ({ name })),
-        },
-        profile?.coach_enabled ?? true,
-      );
-      setBriefing(text);
-    } else {
-      setBriefing("");
-    }
+      // Today's suggested session: first day of the active program.
+      let sess: TodaySession | null = null;
+      const activeProgram = program.status === "fulfilled" ? program.value : null;
+      if (activeProgram) {
+        const ds = await listDays(activeProgram.id);
+        const day = ds[0] ?? null;
+        if (day) {
+          const [pex, lib] = await Promise.all([listProgramExercises(day.id), listExercises()]);
+          const libMap = new Map(lib.map((e) => [e.id, e]));
+          sess = {
+            dayId: day.id,
+            dayName: day.name,
+            exerciseNames: pex.map((p) => libMap.get(p.exercise_id)?.name).filter(Boolean) as string[],
+          };
+        }
+      }
+      setSession(sess);
 
-    setLoading(false);
+      // Coach briefing (rule-based unless AI configured).
+      if (sess) {
+        const { text } = await getBriefing(
+          {
+            dayName: sess.dayName,
+            firstName,
+            exercises: sess.exerciseNames.map((name) => ({ name })),
+          },
+          profile?.coach_enabled ?? true,
+        );
+        setBriefing(text);
+      } else {
+        setBriefing("");
+      }
+    } catch {
+      /* keep whatever loaded; never hang on the spinner */
+    } finally {
+      setLoading(false);
+    }
   }, [firstName, profile?.coach_enabled]);
 
   useEffect(() => {
@@ -125,7 +134,11 @@ export function DashboardPage() {
 
   async function quickWater(ml: number) {
     setWater((w) => w + ml);
-    await addWater(ml);
+    try {
+      await addWater(ml);
+    } catch {
+      /* schema cache / offline — keep the optimistic value */
+    }
   }
 
   if (loading) return <Spinner />;

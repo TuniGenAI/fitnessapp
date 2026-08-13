@@ -47,11 +47,15 @@ export function NutritionPage() {
   const [makingMeal, setMakingMeal] = useState(false);
 
   const load = useCallback(async () => {
-    const [l, w, m] = await Promise.all([listFoodLogs(), getWaterMl(), listMeals()]);
-    setLogs(l);
-    setWater(w);
-    setMeals(m);
-    setLoading(false);
+    try {
+      // allSettled so one failing query can't blank the whole screen.
+      const [l, w, m] = await Promise.allSettled([listFoodLogs(), getWaterMl(), listMeals()]);
+      if (l.status === "fulfilled") setLogs(l.value);
+      if (w.status === "fulfilled") setWater(w.value);
+      if (m.status === "fulfilled") setMeals(m.value);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -64,7 +68,11 @@ export function NutritionPage() {
 
   async function quickWater(ml: number) {
     setWater((w) => w + ml); // optimistic
-    await addWater(ml);
+    try {
+      await addWater(ml);
+    } catch {
+      /* schema cache / offline — keep the optimistic value */
+    }
   }
 
   return (
