@@ -66,6 +66,7 @@ export function WorkoutLogger({
   const [toast, setToast] = useState<string | null>(null);
   const [recap, setRecap] = useState<{ text: string; ai: boolean } | null>(null);
   const [finishing, setFinishing] = useState(false);
+  const [confirmEmpty, setConfirmEmpty] = useState(false);
 
   function flashToast(msg: string) {
     setToast(msg);
@@ -154,7 +155,18 @@ export function WorkoutLogger({
     await load();
   }
 
-  async function finishWorkout() {
+  /** Finish tap: warn first if no working sets were logged, else recap. */
+  function finishWorkout() {
+    const working = entries.flatMap((e) => e.sets).filter((s) => !s.is_warmup);
+    if (working.length === 0) {
+      setConfirmEmpty(true);
+      return;
+    }
+    runFinish();
+  }
+
+  async function runFinish() {
+    setConfirmEmpty(false);
     setFinishing(true);
     const allSets = entries.flatMap((e) => e.sets);
     const working = allSets.filter((s) => !s.is_warmup);
@@ -260,6 +272,24 @@ export function WorkoutLogger({
           >
             Done
           </Button>
+        </Sheet>
+      )}
+
+      {confirmEmpty && (
+        <Sheet open onClose={() => setConfirmEmpty(false)} title="No sets logged yet">
+          <p className="text-sm leading-relaxed text-muted">
+            You haven't logged any working sets this session, so there's nothing to
+            record. Tap the green <span className="font-semibold">“Log set”</span> button
+            after each set — or finish anyway if you're done.
+          </p>
+          <div className="mt-4 flex gap-2">
+            <Button block variant="subtle" onClick={() => setConfirmEmpty(false)}>
+              Keep training
+            </Button>
+            <Button block variant="danger" onClick={runFinish}>
+              Finish anyway
+            </Button>
+          </div>
         </Sheet>
       )}
 
