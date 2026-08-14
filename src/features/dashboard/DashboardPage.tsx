@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MacroRing } from "@/components/MacroRing";
-import { FlameIcon, DumbbellIcon, TrophyIcon, PlusIcon, MinusIcon, DropletIcon } from "@/components/icons";
+import { FlameIcon, DumbbellIcon, PlusIcon, MinusIcon, DropletIcon } from "@/components/icons";
 import { Spinner } from "@/components/ui";
 import { useAuth } from "@/features/auth/AuthProvider";
 import { useProfile } from "@/features/profile/ProfileProvider";
@@ -23,7 +23,6 @@ import {
 } from "@/features/nutrition/api";
 import { getSupplementMacros } from "@/features/supplements/api";
 import { SupplementChecklist } from "@/features/supplements/SupplementChecklist";
-import { getBriefing } from "@/features/coach/api";
 import type { Workout } from "@/types";
 
 interface TodaySession {
@@ -35,7 +34,7 @@ interface TodaySession {
 export function DashboardPage() {
   const navigate = useNavigate();
   const { displayName } = useAuth();
-  const { profile, goals } = useProfile();
+  const { goals } = useProfile();
   const firstName = displayName.split(" ")[0];
 
   const [loading, setLoading] = useState(true);
@@ -45,7 +44,6 @@ export function DashboardPage() {
   const [active, setActive] = useState<Workout | null>(null);
   const [session, setSession] = useState<TodaySession | null>(null);
   const [trainedThisWeek, setTrainedThisWeek] = useState(0);
-  const [briefing, setBriefing] = useState<string>("");
 
   const refreshMacros = useCallback(async () => {
     const [food, supp] = await Promise.all([getFoodTotals(), getSupplementMacros()]);
@@ -98,27 +96,12 @@ export function DashboardPage() {
         }
       }
       setSession(sess);
-
-      // Coach briefing (rule-based unless AI configured).
-      if (sess) {
-        const { text } = await getBriefing(
-          {
-            dayName: sess.dayName,
-            firstName,
-            exercises: sess.exerciseNames.map((name) => ({ name })),
-          },
-          profile?.coach_enabled ?? true,
-        );
-        setBriefing(text);
-      } else {
-        setBriefing("");
-      }
     } catch {
       /* keep whatever loaded; never hang on the spinner */
     } finally {
       setLoading(false);
     }
-  }, [firstName, profile?.coach_enabled]);
+  }, []);
 
   useEffect(() => {
     load();
@@ -226,16 +209,6 @@ export function DashboardPage() {
           {active ? "Resume workout" : session ? "Go to workout" : "Build a program"}
         </button>
       </section>
-
-      {/* Coach line */}
-      {briefing && (
-        <section className="card flex items-start gap-3 p-4" style={{ borderColor: "var(--color-brand)" }}>
-          <TrophyIcon className="mt-0.5 h-5 w-5 shrink-0" style={{ color: "var(--color-accent)" }} />
-          <p className="text-sm text-muted">
-            <span className="font-semibold text-[color:var(--color-brand-soft)]">Coach:</span> {briefing}
-          </p>
-        </section>
-      )}
 
       {/* Water */}
       <section className="card p-4">

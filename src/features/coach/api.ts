@@ -56,7 +56,9 @@ export async function getRecap(
   ctx: RecapContext,
   useAI: boolean,
 ): Promise<{ text: string; ai: boolean }> {
-  if (useAI) {
+  // An empty session (nothing lifted) gets the honest rule-based line — no AI
+  // call, so the coach never congratulates "0 kg moved".
+  if (useAI && ctx.workingSets > 0 && ctx.totalVolumeKg > 0) {
     const ai = await tryGemini("recap", {
       dayName: ctx.dayName,
       summary: `Summary: ${ctx.workingSets} working sets, ${Math.round(

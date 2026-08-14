@@ -1,6 +1,6 @@
 # HANDOFF — build context for the next conversation
 
-> Read this first (after `CLAUDE.md` / `PRD.md` / `TASKS.md`) for full context. Last updated: **2026-08-13**.
+> Read this first (after `CLAUDE.md` / `PRD.md` / `TASKS.md`) for full context. Last updated: **2026-08-14**.
 >
 > **TL;DR:** Phase-1 is **complete and live** — all features (M0–M7) built, deployed to Vercel, backend on Supabase, AI functions deployed, Gemini key set. `npm run build` green. Only Milestone 8 (owner's iPhone-PWA end-to-end pass) and one parked item (offline logging) remain. See the Runbook near the bottom for ops.
 
@@ -25,6 +25,14 @@
 >
 > **Decision — thinking stays ON for all three** (owner call, 2026-08-13). Rationale: at single-user scale the binding free-tier limit is **requests/day (~250 flash)**, not tokens, and thinking doesn't change request count — so thinking-on costs nothing on quota, only a few seconds of latency per call. To make Describe/Photo snappier later, add `thinkingConfig:{ thinkingBudget: 0 }` to their `generationConfig` (and you can then drop `maxOutputTokens` back down, since the reasoning headroom is no longer needed). Revisit token cost only if the app opens to multiple users on the paid tier.
 
+> **🩹 First real-workout fixes (2026-08-14, app v0.6.0).** After the owner's first on-device session, four issues surfaced (three fixed here, one is the root cause of the others):
+> 1. **Quota drain — the big one.** The **dashboard called the Gemini `coach` briefing on *every* load** (`getBriefing` in `DashboardPage`, `coach_enabled ?? true`), uncached — every app open / tab-back-to-Today / refresh burned one request. On the ~250/day flash free tier this exhausted quota before deliberate use, which is why the **food photo 429'd** and the **coach fell back to generic rule-based text**. **Fix (owner call): the coach is removed from the dashboard entirely** — no AI call and no "Coach:" line on load. AI now fires **only on deliberate triggers**: the post-workout **recap** (on Finish) and per-set reactions. This is the fix for the "AI didn't work / coach was generic" report.
+> 2. **Coach congratulated an empty session.** The rule-based recap said *"That's how it's done: 0 working sets, 0 kg moved"* when nothing was logged. `buildRecap` (`src/features/coach/logic.ts`) now early-returns an honest line when `workingSets === 0 || totalVolumeKg === 0`, and `getRecap` (`src/features/coach/api.ts`) **skips the AI call** for empty sessions so Gemini can't celebrate zero either.
+> 3. **Bottom nav bar detached mid-scroll on iOS** (overlapped content). Root cause: `position: fixed` + `backdrop-filter` on the `<nav>` — a known iOS Safari/PWA bug. `AppShell` is now a **full-height flex column** where only `<main>` scrolls (`flex-1 overflow-y-auto`) and the bar is an **in-flow `shrink-0` child** (no `fixed`). Verified: stays pinned to the true bottom while content scrolls.
+> 4. **Couldn't type fine decimals** (e.g. `0.6 kg`). The `Stepper` was a *controlled numeric* input, so typing `0.` coerced back to `0` and ate the point. It now keeps a **draft string** while focused (partial entries like `0.` / `0.6` survive) and commits/normalizes on blur; the weight field allows **2 decimals** (`decimals={2}`). Verified live by typing `0.6`.
+>
+> All frontend-only — a push to `main` deploys via Vercel; the edge functions were **not** changed. Version marker bumped to **v0.6.0** (`SettingsPage`). Still open/parked: warning when a user taps **Finish** with zero working sets (currently allowed silently), and offline logging.
+
 ### What M2–M7 added (all local-first: Supabase when signed in, localStorage in demo)
 - **Data layer:** `src/lib/session.ts` (auth→data bridge), `src/lib/localDb.ts` (demo store, seeds exercises + default supplements + goals/profile), `src/lib/repo.ts` (generic backend↔demo CRUD), `src/lib/format.ts` (units/dates/uuid), `src/lib/useAsync.ts`, `src/lib/celebrate.ts` (confetti). Client seeds in `src/data/`.
 - **Profile context:** `src/features/profile/` — loads profile + goals app-wide (units, coach settings, nutrition targets).
@@ -34,7 +42,7 @@
 - **M4 Nutrition** (`src/features/nutrition/`): TDEE calculator + manual goals, Open Food Facts search + barcode-number lookup, custom foods, saved meals, water, macro rings.
 - **M5 Supplements** (`src/features/supplements/`): stack management, daily checklist, macro contribution, adherence streak.
 - **M6 Body** (`src/features/body/`): weigh-ins, smoothed trend chart, feeds TDEE, honest sync note.
-- **M7 Dashboard** (`src/features/dashboard/`): live rings (food+supps), water, today's session, coach line, weekly strip, supplement checklist.
+- **M7 Dashboard** (`src/features/dashboard/`): live rings (food+supps), water, today's session, weekly strip, supplement checklist. *(The AI coach line was removed from the dashboard in v0.6.0 — see the 2026-08-14 note above.)*
 
 **Verification (in-browser, demo mode, zero console errors):** built PPL from template → ran a Push session → PR detection fired weight+volume (not reps) with confetti → history/progress correct; TDEE math correct; OFF "banana" search→log updated rings exactly; ticking Whey added +120 kcal/+24 g protein; body weigh-in saved with snapshot; Settings units/coach/key render.
 

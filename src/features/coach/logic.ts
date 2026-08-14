@@ -71,6 +71,11 @@ const RECAP_WINS = [
 ];
 
 export function buildRecap(ctx: RecapContext): string {
+  // Don't celebrate an empty session. If nothing was actually lifted, say so
+  // plainly instead of congratulating "0 kg moved".
+  if (ctx.workingSets === 0 || ctx.totalVolumeKg === 0) {
+    return "No working sets logged this session — nothing to bank yet. Tap the green “Log set” button after each set, then finish, and I'll track your progress.";
+  }
   const seed = daySeed() + ctx.workingSets;
   const win = pick(RECAP_WINS, seed);
   const pr =

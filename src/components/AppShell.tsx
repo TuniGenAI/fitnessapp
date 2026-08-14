@@ -23,18 +23,23 @@ const TABS: Tab[] = [
   { to: "/settings", label: "Settings", Icon: SettingsIcon },
 ];
 
-/** App frame: scrollable content + a fixed bottom tab bar (thumb-reachable). */
+/**
+ * App frame: a full-height flex column where only <main> scrolls and the tab
+ * bar is an in-flow flex child pinned to the bottom by the layout — NOT
+ * `position: fixed`. Fixed + backdrop-filter detaches mid-scroll on iOS
+ * Safari/PWA and lands over the content; this pattern avoids that entirely.
+ */
 export function AppShell() {
   return (
-    <div className="mx-auto flex min-h-full max-w-lg flex-col">
-      <main className="flex-1 px-4 pb-28 pt-4">
+    <div className="mx-auto flex h-full max-w-lg flex-col overflow-hidden">
+      <main className="flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4">
         <Outlet />
       </main>
 
       <InstallPrompt />
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-20 border-t"
+        className="shrink-0 border-t"
         style={{
           background: "color-mix(in srgb, var(--color-ink) 88%, transparent)",
           borderColor: "var(--color-line)",

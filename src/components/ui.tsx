@@ -5,6 +5,7 @@
  */
 import {
   useEffect,
+  useState,
   type ButtonHTMLAttributes,
   type ComponentType,
   type ReactNode,
@@ -180,25 +181,44 @@ export function Stepper({
   decimals?: number;
 }) {
   const set = (v: number) => onChange(Math.max(min, Math.min(max, v)));
+  // While the field is focused we show the raw keystrokes (`draft`) so partial
+  // decimals like "0" → "0." → "0.6" survive; a controlled number would coerce
+  // "0." back to 0 and eat the point. On blur we commit + normalize.
+  const [draft, setDraft] = useState<string | null>(null);
+  const shown =
+    draft ?? (Number.isFinite(value) ? String(Number(value.toFixed(decimals))) : "0");
+  const bump = (delta: number) => {
+    setDraft(null);
+    set(Number((value + delta).toFixed(4)));
+  };
   return (
     <div
       className="flex items-center justify-between gap-1 rounded-xl px-1 py-1"
       style={{ background: "var(--color-surface-2)" }}
     >
-      <StepBtn label="−" onClick={() => set(Number((value - step).toFixed(4)))} />
+      <StepBtn label="−" onClick={() => bump(-step)} />
       <div className="flex items-baseline gap-1">
         <input
           inputMode="decimal"
-          value={Number.isFinite(value) ? Number(value.toFixed(decimals)) : 0}
+          value={shown}
           onChange={(e) => {
-            const n = Number(e.target.value);
+            const raw = e.target.value;
+            setDraft(raw);
+            if (raw === "" || raw === "." || raw === "-") return; // partial entry
+            const n = Number(raw);
             if (!Number.isNaN(n)) set(n);
+          }}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={() => {
+            const n = Number(draft);
+            if (draft !== null && draft !== "" && !Number.isNaN(n)) set(n);
+            setDraft(null); // fall back to the normalized display
           }}
           className="w-16 bg-transparent text-center text-lg font-bold outline-none"
         />
         {suffix && <span className="text-xs text-muted">{suffix}</span>}
       </div>
-      <StepBtn label="+" onClick={() => set(Number((value + step).toFixed(4)))} />
+      <StepBtn label="+" onClick={() => bump(step)} />
     </div>
   );
 }

@@ -436,7 +436,7 @@ function ExerciseLogCard({
             onChange={setWeight}
             step={toDisplayWeight(inc, unit)}
             min={0}
-            decimals={1}
+            decimals={2}
           />
         </div>
         <div>
