@@ -75,6 +75,42 @@ export function isoDaysAgo(daysAgo: number): string {
   return todayISO(d);
 }
 
+/** Shift a `YYYY-MM-DD` local date by `delta` days, returning `YYYY-MM-DD`. */
+export function shiftISODate(ymd: string, delta: number): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return todayISO(new Date(y, m - 1, d + delta));
+}
+
+/**
+ * ISO timestamp at local date `ymd` (`YYYY-MM-DD`), keeping the current
+ * wall-clock time. Used to backdate a workout to a past day while preserving a
+ * realistic intra-day ordering against other sessions.
+ */
+export function isoAtLocalDate(ymd: string): string {
+  const now = new Date();
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(
+    y,
+    m - 1,
+    d,
+    now.getHours(),
+    now.getMinutes(),
+    now.getSeconds(),
+  ).toISOString();
+}
+
+/** Friendly label for a `YYYY-MM-DD` date: "Today", "Yesterday", or "Wed, Aug 13". */
+export function friendlyDate(ymd: string): string {
+  if (ymd === todayISO()) return "Today";
+  if (ymd === isoDaysAgo(1)) return "Yesterday";
+  // Parse as local (append time) so the weekday/day don't shift across UTC.
+  return new Date(`${ymd}T00:00:00`).toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 /** Short human date, e.g. "Aug 13". */
 export function shortDate(iso: string): string {
   const d = new Date(iso.length <= 10 ? `${iso}T00:00:00` : iso);

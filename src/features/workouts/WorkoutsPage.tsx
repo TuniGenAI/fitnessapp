@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { Exercise, Program, ProgramDay, Workout } from "@/types";
-import { PageHeader, Button, Segmented, Spinner, EmptyState } from "@/components/ui";
+import { PageHeader, Button, Segmented, Spinner, EmptyState, DateNav } from "@/components/ui";
 import { DumbbellIcon, ListIcon, PlusIcon } from "@/components/icons";
+import { todayISO, friendlyDate } from "@/lib/format";
 import {
   getActiveWorkout,
   getActiveProgram,
@@ -35,6 +36,7 @@ export function WorkoutsPage() {
   const [tab, setTab] = useState<Tab>("plan");
   const [building, setBuilding] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [date, setDate] = useState(todayISO());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,7 +93,7 @@ export function WorkoutsPage() {
   async function start(input: { program_day_id?: string; name: string }) {
     setStarting(true);
     try {
-      const w = await startWorkout(input);
+      const w = await startWorkout({ ...input, date });
       setActive(w);
     } finally {
       setStarting(false);
@@ -131,6 +133,8 @@ export function WorkoutsPage() {
           program={program}
           days={days}
           starting={starting}
+          date={date}
+          onDateChange={setDate}
           onBuild={() => setBuilding(true)}
           onStartDay={(d) => start({ program_day_id: d.id, name: d.name })}
           onQuickStart={() => start({ name: "Quick workout" })}
@@ -150,6 +154,8 @@ function PlanTab({
   program,
   days,
   starting,
+  date,
+  onDateChange,
   onBuild,
   onStartDay,
   onQuickStart,
@@ -157,12 +163,24 @@ function PlanTab({
   program: Program | null;
   days: DaySummary[];
   starting: boolean;
+  date: string;
+  onDateChange: (d: string) => void;
   onBuild: () => void;
   onStartDay: (day: ProgramDay) => void;
   onQuickStart: () => void;
 }) {
+  const isToday = date === todayISO();
   return (
     <div className="space-y-4">
+      <DateNav date={date} onChange={onDateChange} />
+      {!isToday && (
+        <p
+          className="rounded-xl px-3 py-2 text-center text-xs font-semibold"
+          style={{ background: "var(--color-surface-2)", color: "var(--color-brand)" }}
+        >
+          Logging this session for {friendlyDate(date)}
+        </p>
+      )}
       {!program || days.length === 0 ? (
         <EmptyState
           Icon={DumbbellIcon}

@@ -42,10 +42,13 @@ export function AddFoodSheet({
   open,
   onClose,
   onLogged,
+  logDate,
 }: {
   open: boolean;
   onClose: () => void;
   onLogged: () => void;
+  /** Which day the food is logged to (defaults to today inside `logFood`). */
+  logDate?: string;
 }) {
   const [tab, setTab] = useState<Tab>("search");
   const [selected, setSelected] = useState<Selectable | null>(null);
@@ -62,6 +65,7 @@ export function AddFoodSheet({
       {selected ? (
         <ServingStep
           item={selected}
+          logDate={logDate}
           onBack={() => setSelected(null)}
           onLogged={() => {
             setSelected(null);
@@ -608,10 +612,12 @@ const MEALS: { value: MealType; label: string }[] = [
 
 function ServingStep({
   item,
+  logDate,
   onBack,
   onLogged,
 }: {
   item: Selectable;
+  logDate?: string;
   onBack: () => void;
   onLogged: () => void;
 }) {
@@ -714,6 +720,7 @@ function ServingStep({
                 servings,
                 meal_type: meal,
                 food_id: foodId,
+                log_date: logDate,
               });
               onLogged();
             } finally {

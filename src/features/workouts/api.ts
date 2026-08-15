@@ -26,6 +26,7 @@ import type {
   RecordType,
 } from "@/types";
 import { checkPrsForSet } from "./logic";
+import { todayISO, isoAtLocalDate } from "@/lib/format";
 import type { ProgramTemplate } from "./templates";
 
 function requireUid(): string {
@@ -292,14 +293,22 @@ export async function startWorkout(input: {
   program_day_id?: string | null;
   name?: string | null;
   coach_mode?: CoachMode | null;
+  /** Log the session for a past day (`YYYY-MM-DD`); defaults to today. */
+  date?: string | null;
 }): Promise<Workout> {
   const uid = requireUid();
+  // Backdate only when an earlier day is chosen — otherwise keep the exact "now"
+  // so today's sessions order naturally. History groups by `started_at`.
+  const startedAt =
+    input.date && input.date !== todayISO()
+      ? isoAtLocalDate(input.date)
+      : new Date().toISOString();
   return insertRow<Workout>("workouts", {
     user_id: uid,
     program_day_id: input.program_day_id ?? null,
     name: input.name ?? null,
     coach_mode: input.coach_mode ?? null,
-    started_at: new Date().toISOString(),
+    started_at: startedAt,
     completed_at: null,
     notes: null,
   });

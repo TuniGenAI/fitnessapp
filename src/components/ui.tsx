@@ -11,7 +11,8 @@ import {
   type ReactNode,
   type SVGProps,
 } from "react";
-import { PlusIcon } from "./icons";
+import { PlusIcon, BackIcon, ChevronRightIcon } from "./icons";
+import { friendlyDate, shiftISODate, todayISO } from "@/lib/format";
 
 type Variant = "primary" | "subtle" | "ghost" | "danger" | "accent";
 
@@ -123,6 +124,65 @@ export function Sheet({
         {children}
       </div>
     </div>
+  );
+}
+
+/**
+ * Day navigator — step back to a past day (‹) and forward toward today (›).
+ * Forward is capped at `max` (today by default) so you can log for earlier days
+ * but never the future.
+ */
+export function DateNav({
+  date,
+  onChange,
+  max = todayISO(),
+}: {
+  date: string;
+  onChange: (d: string) => void;
+  max?: string;
+}) {
+  const atMax = date >= max;
+  return (
+    <div className="card flex items-center justify-between gap-2 p-1.5">
+      <DateNavBtn
+        label="Previous day"
+        onClick={() => onChange(shiftISODate(date, -1))}
+      >
+        <BackIcon className="h-5 w-5" />
+      </DateNavBtn>
+      <span className="font-display text-sm font-bold">{friendlyDate(date)}</span>
+      <DateNavBtn
+        label="Next day"
+        disabled={atMax}
+        onClick={() => onChange(shiftISODate(date, 1))}
+      >
+        <ChevronRightIcon className="h-5 w-5" />
+      </DateNavBtn>
+    </div>
+  );
+}
+
+function DateNavBtn({
+  label,
+  onClick,
+  disabled,
+  children,
+}: {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      className="flex h-9 w-9 items-center justify-center rounded-lg transition active:scale-95 disabled:opacity-30"
+      style={{ background: "var(--color-surface-2)", color: "var(--color-brand)" }}
+    >
+      {children}
+    </button>
   );
 }
 
