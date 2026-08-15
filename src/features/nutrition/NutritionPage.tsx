@@ -10,8 +10,10 @@ import {
   Sheet,
   Stepper,
   AddButton,
+  DateNav,
 } from "@/components/ui";
-import { AppleIcon, PlusIcon, TrashIcon, DropletIcon, SettingsIcon } from "@/components/icons";
+import { todayISO } from "@/lib/format";
+import { AppleIcon, PlusIcon, TrashIcon, DropletIcon, SettingsIcon, FlameIcon } from "@/components/icons";
 import {
   listFoodLogs,
   sumFoodLogs,
@@ -27,6 +29,7 @@ import {
 } from "./api";
 import { AddFoodSheet } from "./AddFoodSheet";
 import { GoalsEditor } from "./GoalsEditor";
+import { PlanDaySheet } from "./PlanDaySheet";
 
 const MacroTrends = lazy(() => import("./MacroTrends"));
 
@@ -40,6 +43,7 @@ const MEAL_LABEL: Record<MealType, string> = {
 
 export function NutritionPage() {
   const { goals, loading: profileLoading } = useProfile();
+  const [date, setDate] = useState(todayISO());
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<FoodLog[]>([]);
   const [water, setWater] = useState(0);
@@ -47,20 +51,28 @@ export function NutritionPage() {
   const [adding, setAdding] = useState(false);
   const [editingGoals, setEditingGoals] = useState(false);
   const [makingMeal, setMakingMeal] = useState(false);
+  const [planning, setPlanning] = useState(false);
+  const isToday = date === todayISO();
 
   const load = useCallback(async () => {
     try {
       // allSettled so one failing query can't blank the whole screen.
-      const [l, w, m] = await Promise.allSettled([listFoodLogs(), getWaterMl(), listMeals()]);
+      const [l, w, m] = await Promise.allSettled([
+        listFoodLogs(date),
+        getWaterMl(date),
+        listMeals(),
+      ]);
       if (l.status === "fulfilled") setLogs(l.value);
       if (w.status === "fulfilled") setWater(w.value);
       if (m.status === "fulfilled") setMeals(m.value);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [date]);
 
+  // Reload whenever the selected day changes.
   useEffect(() => {
+    setLoading(true);
     load();
   }, [load]);
 
@@ -71,7 +83,7 @@ export function NutritionPage() {
   async function quickWater(ml: number) {
     setWater((w) => w + ml); // optimistic
     try {
-      await addWater(ml);
+      await addWater(ml, date);
     } catch {
       /* schema cache / offline — keep the optimistic value */
     }
@@ -94,6 +106,8 @@ export function NutritionPage() {
         }
       />
 
+      <DateNav date={date} onChange={setDate} />
+
       {loading || profileLoading ? (
         <Spinner />
       ) : (
@@ -115,6 +129,13 @@ export function NutritionPage() {
               hint="Use the TDEE calculator or enter targets manually to unlock macro tracking."
               action={<Button onClick={() => setEditingGoals(true)}>Set goals</Button>}
             />
+          )}
+
+          {/* AI coach — plan the meals still ahead (today only). On-tap only. */}
+          {hasGoals && isToday && (
+            <Button variant="subtle" block onClick={() => setPlanning(true)} style={{ color: "var(--color-accent)" }}>
+              <FlameIcon className="h-4 w-4" /> Plan the rest of my day
+            </Button>
           )}
 
           {/* Water */}
@@ -160,8 +181,12 @@ export function NutritionPage() {
             <PlusIcon className="h-4 w-4" /> Log food
           </Button>
 
-          {/* Today's log grouped by meal */}
-          <FoodLogList logs={logs} onDelete={async (id) => { await deleteFoodLog(id); await load(); }} />
+          {/* Selected day's log grouped by meal */}
+          <FoodLogList
+            logs={logs}
+            isToday={isToday}
+            onDelete={async (id) => { await deleteFoodLog(id); await load(); }}
+          />
 
           {/* Saved meals */}
           <section className="space-y-2">
@@ -178,7 +203,7 @@ export function NutritionPage() {
                   <button
                     className="min-w-0 flex-1 text-left"
                     onClick={async () => {
-                      await logMeal(m.meal.id);
+                      await logMeal(m.meal.id, date);
                       await load();
                     }}
                   >
@@ -207,9 +232,18 @@ export function NutritionPage() {
       )}
 
       {adding && (
-        <AddFoodSheet open onClose={() => setAdding(false)} onLogged={load} />
+        <AddFoodSheet open logDate={date} onClose={() => setAdding(false)} onLogged={load} />
       )}
       {editingGoals && <GoalsEditor open onClose={() => setEditingGoals(false)} />}
+      {planning && goals && (
+        <PlanDaySheet
+          open
+          onClose={() => setPlanning(false)}
+          goals={goals}
+          totals={totals}
+          logs={logs}
+        />
+      )}
       {makingMeal && (
         <CreateMealSheet
           open
@@ -226,15 +260,19 @@ export function NutritionPage() {
 
 function FoodLogList({
   logs,
+  isToday,
   onDelete,
 }: {
   logs: FoodLog[];
+  isToday: boolean;
   onDelete: (id: string) => void;
 }) {
   if (logs.length === 0) {
     return (
       <p className="py-2 text-center text-sm text-muted">
-        Nothing logged today yet. Tap “Log food” to start.
+        {isToday
+          ? "Nothing logged today yet. Tap “Log food” to start."
+          : "Nothing logged this day. Tap “Log food” to add it."}
       </p>
     );
   }

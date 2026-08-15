@@ -312,6 +312,78 @@ export async function describeMeal(text: string): Promise<PhotoFood | null> {
   return null;
 }
 
+// ---- Nutrition coach ("plan the rest of my day") ---------------------------
+export interface HabitDigest {
+  avgCalories: number;
+  avgProtein: number;
+  topFoods: string[];
+}
+
+/** Compact "past habits" signal for the coach: average daily calories/protein
+ *  over recent days actually logged, plus the most frequently logged foods.
+ *  One read, pre-aggregated — cheap to send to the AI (spec §5). */
+export async function getHabitDigest(days = 14, topN = 8): Promise<HabitDigest> {
+  const rows = await selectRows<FoodLog>("food_logs", { user_id: requireUid() });
+  const cutoff = isoDaysAgo(days - 1);
+  const recent = rows.filter((r) => r.log_date >= cutoff);
+  const loggedDays = new Set(recent.map((r) => r.log_date)).size || 1;
+  let cal = 0;
+  let pro = 0;
+  const freq = new Map<string, number>();
+  for (const r of recent) {
+    cal += r.calories;
+    pro += r.protein_g;
+    const name = r.name.trim();
+    if (name) freq.set(name, (freq.get(name) ?? 0) + 1);
+  }
+  const topFoods = [...freq.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topN)
+    .map(([name]) => name);
+  return {
+    avgCalories: Math.round(cal / loggedDays),
+    avgProtein: Math.round(pro / loggedDays),
+    topFoods,
+  };
+}
+
+export interface ChatTurn {
+  role: "user" | "model";
+  text: string;
+}
+
+export interface PlanContext {
+  timeHHmm: string;
+  goalLabel: string;
+  remaining: Macros;
+  targets: Macros;
+  eatenToday: string[];
+  habit: HabitDigest;
+}
+
+/**
+ * Ask the `nutrition-coach` edge function (Gemini) for a plan for the rest of the
+ * day, given the running conversation. Returns the coach's text, or null when the
+ * AI is unavailable (demo mode, no key) so the UI can fall back to the rule-based
+ * plan. A real Gemini error (bad key / quota) throws with a specific hint — same
+ * contract as `describeMeal`.
+ */
+export async function planRestOfDay(
+  context: PlanContext,
+  messages: ChatTurn[],
+): Promise<string | null> {
+  if (!usingBackend() || !supabase) return null;
+  const { data, error } = await supabase.functions.invoke<{
+    text?: string | null;
+    fallback?: boolean;
+    error?: string;
+  }>("nutrition-coach", { body: { context, messages } });
+  if (error) throw new Error(`Couldn't reach the nutrition-coach function (${error.message}).`);
+  if (data?.text) return data.text;
+  if (data?.error) throw new Error(aiErrorHint(data.error));
+  return null; // no key → graceful fallback
+}
+
 /** Turn the edge function's raw `gemini <status>` / error string into a hint
  *  that points at the real cause. Keeps the actual code visible for debugging. */
 function aiErrorHint(err: string): string {

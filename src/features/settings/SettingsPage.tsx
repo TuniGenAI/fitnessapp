@@ -188,7 +188,7 @@ export function SettingsPage() {
         </ul>
       </section>
 
-      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.6.1</p>
+      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.8.0</p>
     </div>
   );
 }

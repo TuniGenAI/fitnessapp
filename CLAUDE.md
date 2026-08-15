@@ -196,7 +196,7 @@ VITE_SUPABASE_ANON_KEY=...   # from step 6.2
 - **Build checklist:** [`TASKS.md`](./TASKS.md) · **Current state + Runbook:** [`HANDOFF.md`](./HANDOFF.md)
 - **Run locally:** `npm run dev` · **Build (must stay green):** `npm run build`
 - **Live app:** https://fitnessapp-mauve-nine.vercel.app (auto-deploys on push to `main`)
-- **Supabase project:** `yotsunlngoudmxowiviq` · **Edge functions:** `coach`, `food-photo`, `food-text` (deployed; read the per-user Gemini key server-side). **The CLI is installed locally** (linked to project ref `yotsunlngoudmxowiviq`) — deploy a function with `supabase functions deploy <name>`. If a shell can't find `supabase` on `PATH`, `npx supabase functions deploy <name>` works too, or paste the code in the Supabase dashboard → Edge Functions.
+- **Supabase project:** `yotsunlngoudmxowiviq` · **Edge functions:** `coach`, `food-photo`, `food-text` (deployed), plus `nutrition-coach` (built 2026-08-15 — **needs deploying**: `supabase functions deploy nutrition-coach`). All read the per-user Gemini key server-side. **The CLI is installed locally** (linked to project ref `yotsunlngoudmxowiviq`) — deploy a function with `supabase functions deploy <name>`. If a shell can't find `supabase` on `PATH`, `npx supabase functions deploy <name>` works too, or paste the code in the Supabase dashboard → Edge Functions.
 - **Free accounts needed:** Supabase, Google (OAuth + Gemini key), Vercel
 - **Monthly cost (1 user):** $0
 
