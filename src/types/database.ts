@@ -287,6 +287,7 @@ export interface Database {
           set_number: number;
           weight_kg: number;
           reps: number;
+          rpe: number | null;
           is_warmup: boolean;
           is_pr: boolean;
           logged_at: string;
@@ -299,6 +300,7 @@ export interface Database {
           set_number?: number;
           weight_kg?: number;
           reps?: number;
+          rpe?: number | null;
           is_warmup?: boolean;
           is_pr?: boolean;
           logged_at?: string;
@@ -307,6 +309,7 @@ export interface Database {
           set_number?: number;
           weight_kg?: number;
           reps?: number;
+          rpe?: number | null;
           is_warmup?: boolean;
           is_pr?: boolean;
         }
@@ -359,6 +362,7 @@ export interface Database {
           protein_g: number;
           carbs_g: number;
           fat_g: number;
+          fiber_g: number | null;
           created_at: string;
           updated_at: string;
         },
@@ -376,6 +380,7 @@ export interface Database {
           protein_g?: number;
           carbs_g?: number;
           fat_g?: number;
+          fiber_g?: number | null;
           created_at?: string;
           updated_at?: string;
         },
@@ -391,6 +396,7 @@ export interface Database {
           protein_g?: number;
           carbs_g?: number;
           fat_g?: number;
+          fiber_g?: number | null;
           updated_at?: string;
         }
       >;
@@ -446,6 +452,7 @@ export interface Database {
           protein_g: number;
           carbs_g: number;
           fat_g: number;
+          fiber_g: number | null;
           created_at: string;
         },
         {
@@ -460,6 +467,7 @@ export interface Database {
           protein_g?: number;
           carbs_g?: number;
           fat_g?: number;
+          fiber_g?: number | null;
           created_at?: string;
         },
         {
@@ -472,6 +480,7 @@ export interface Database {
           protein_g?: number;
           carbs_g?: number;
           fat_g?: number;
+          fiber_g?: number | null;
         }
       >;
 
@@ -587,6 +596,11 @@ export interface Database {
           body_fat_pct: number | null;
           muscle_pct: number | null;
           water_pct: number | null;
+          waist_cm: number | null;
+          chest_cm: number | null;
+          arms_cm: number | null;
+          thighs_cm: number | null;
+          hips_cm: number | null;
           note: string | null;
           created_at: string;
         },
@@ -598,6 +612,11 @@ export interface Database {
           body_fat_pct?: number | null;
           muscle_pct?: number | null;
           water_pct?: number | null;
+          waist_cm?: number | null;
+          chest_cm?: number | null;
+          arms_cm?: number | null;
+          thighs_cm?: number | null;
+          hips_cm?: number | null;
           note?: string | null;
           created_at?: string;
         },
@@ -607,6 +626,33 @@ export interface Database {
           body_fat_pct?: number | null;
           muscle_pct?: number | null;
           water_pct?: number | null;
+          waist_cm?: number | null;
+          chest_cm?: number | null;
+          arms_cm?: number | null;
+          thighs_cm?: number | null;
+          hips_cm?: number | null;
+          note?: string | null;
+        }
+      >;
+
+      progress_photos: Table<
+        {
+          id: string;
+          user_id: string;
+          taken_at: string;
+          data_url: string;
+          note: string | null;
+          created_at: string;
+        },
+        {
+          id?: string;
+          user_id: string;
+          taken_at?: string;
+          data_url: string;
+          note?: string | null;
+          created_at?: string;
+        },
+        {
           note?: string | null;
         }
       >;

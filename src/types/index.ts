@@ -47,6 +47,7 @@ export type SupplementLog = Row<"supplement_logs">;
 export type BodyMetric = Row<"body_metrics">;
 export type CoachMessage = Row<"coach_messages">;
 export type WaterLog = Row<"water_logs">;
+export type ProgressPhoto = Row<"progress_photos">;
 
 // ---- Insert types (what you write; optionals have DB defaults) --------------
 export type ProfileInsert = Insert<"profiles">;

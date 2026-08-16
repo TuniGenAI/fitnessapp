@@ -121,6 +121,11 @@ export function NutritionPage() {
                 <MacroRing label="Carbs" value={totals.carbs_g} goal={goals!.carbs_target_g ?? 0} color="var(--color-carbs)" />
                 <MacroRing label="Fat" value={totals.fat_g} goal={goals!.fat_target_g ?? 0} color="var(--color-fat)" />
               </div>
+              {(totals.fiber_g ?? 0) > 0 && (
+                <p className="mt-3 text-center text-xs text-muted">
+                  Fiber {Math.round(totals.fiber_g ?? 0)} g today
+                </p>
+              )}
             </section>
           ) : (
             <EmptyState
@@ -314,6 +319,7 @@ function FoodLogList({
                     </p>
                     <p className="text-xs text-muted">
                       {l.calories} kcal · P{l.protein_g} C{l.carbs_g} F{l.fat_g}
+                      {l.fiber_g != null && l.fiber_g > 0 && ` · Fib ${l.fiber_g}`}
                     </p>
                   </div>
                   <button onClick={() => onDelete(l.id)} className="text-muted" aria-label="Delete">

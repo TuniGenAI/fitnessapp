@@ -6,6 +6,7 @@ import { SearchIcon, CameraIcon, PlusIcon, TrashIcon, XIcon } from "@/components
 import { searchFoods, lookupBarcode, type OffFood } from "./off";
 import {
   listFoods,
+  listRecentFoods,
   logFood,
   createFood,
   saveOffFood,
@@ -13,9 +14,10 @@ import {
   scanFoodPhoto,
   describeMeal,
   type Macros,
+  type RecentFood,
 } from "./api";
 
-type Tab = "search" | "barcode" | "photo" | "describe" | "saved" | "custom";
+type Tab = "recent" | "search" | "barcode" | "photo" | "describe" | "saved" | "custom";
 
 interface Selectable {
   name: string;
@@ -28,6 +30,9 @@ interface Selectable {
   editableName?: boolean;
   /** Offer a "save to my foods" toggle for a not-yet-saved custom item. */
   savable?: boolean;
+  /** Prefill the confirm step (used by recents so re-logging is near-instant). */
+  initialServings?: number;
+  initialMeal?: MealType | null;
 }
 
 function guessMeal(): MealType {
@@ -50,7 +55,7 @@ export function AddFoodSheet({
   /** Which day the food is logged to (defaults to today inside `logFood`). */
   logDate?: string;
 }) {
-  const [tab, setTab] = useState<Tab>("search");
+  const [tab, setTab] = useState<Tab>("recent");
   const [selected, setSelected] = useState<Selectable | null>(null);
 
   return (
@@ -75,19 +80,39 @@ export function AddFoodSheet({
         />
       ) : (
         <>
-          <Segmented<Tab>
-            value={tab}
-            onChange={setTab}
-            options={[
-              { value: "search", label: "Search" },
-              { value: "describe", label: "Describe" },
-              { value: "barcode", label: "Barcode" },
-              { value: "photo", label: "Photo" },
-              { value: "saved", label: "Saved" },
-              { value: "custom", label: "Custom" },
-            ]}
-          />
+          <div className="-mx-1 overflow-x-auto px-1">
+            <Segmented<Tab>
+              value={tab}
+              onChange={setTab}
+              options={[
+                { value: "recent", label: "Recent" },
+                { value: "search", label: "Search" },
+                { value: "describe", label: "Describe" },
+                { value: "barcode", label: "Barcode" },
+                { value: "photo", label: "Photo" },
+                { value: "saved", label: "Saved" },
+                { value: "custom", label: "Custom" },
+              ]}
+            />
+          </div>
           <div className="mt-4">
+            {tab === "recent" && (
+              <RecentTab
+                onPick={setSelected}
+                onQuickLog={async (r) => {
+                  await logFood({
+                    name: r.name,
+                    perServing: r.perServing,
+                    servings: r.servings,
+                    meal_type: r.meal_type ?? guessMeal(),
+                    food_id: r.food_id,
+                    log_date: logDate,
+                  });
+                  onLogged();
+                  onClose();
+                }}
+              />
+            )}
             {tab === "search" && <SearchTab onPick={setSelected} />}
             {tab === "describe" && <DescribeTab onPick={setSelected} />}
             {tab === "barcode" && <BarcodeTab onPick={setSelected} />}
@@ -110,6 +135,7 @@ function offToSelectable(o: OffFood): Selectable {
       protein_g: o.protein_g,
       carbs_g: o.carbs_g,
       fat_g: o.fat_g,
+      fiber_g: o.fiber_g ?? undefined,
     },
     servingLabel: o.serving_label,
     off: o,
@@ -125,6 +151,7 @@ function foodToSelectable(f: Food): Selectable {
       protein_g: f.protein_g,
       carbs_g: f.carbs_g,
       fat_g: f.fat_g,
+      fiber_g: f.fiber_g ?? undefined,
     },
     servingLabel: f.serving_label,
     foodId: f.id,
@@ -155,17 +182,92 @@ function ResultRow({
   );
 }
 
+function recentToSelectable(r: RecentFood): Selectable {
+  return {
+    name: r.name,
+    perServing: r.perServing,
+    servingLabel: "1 serving",
+    foodId: r.food_id,
+    initialServings: r.servings,
+    initialMeal: r.meal_type,
+  };
+}
+
+/**
+ * Recently logged foods, newest first — the fast path for re-logging what you
+ * eat often. Tap the row to adjust servings/meal, or the "＋" to log it again
+ * instantly with the same servings.
+ */
+function RecentTab({
+  onPick,
+  onQuickLog,
+}: {
+  onPick: (s: Selectable) => void;
+  onQuickLog: (r: RecentFood) => void;
+}) {
+  const [recents, setRecents] = useState<RecentFood[] | null>(null);
+
+  useEffect(() => {
+    listRecentFoods().then(setRecents);
+  }, []);
+
+  if (!recents) return <Spinner />;
+  if (recents.length === 0)
+    return (
+      <p className="text-sm text-muted">
+        Nothing logged yet. Add a food via Search or Custom — it'll show here for
+        one-tap re-logging next time.
+      </p>
+    );
+
+  return (
+    <div className="space-y-1.5">
+      {recents.map((r, i) => (
+        <div
+          key={`${r.name}-${i}`}
+          className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+          style={{ background: "var(--color-surface-2)" }}
+        >
+          <button className="min-w-0 flex-1 text-left" onClick={() => onPick(recentToSelectable(r))}>
+            <p className="truncate font-medium">
+              {r.name}
+              {r.servings !== 1 && <span className="text-muted"> ×{r.servings}</span>}
+            </p>
+            <p className="truncate text-xs text-muted">
+              {Math.round(r.perServing.calories * r.servings)} kcal · P
+              {Math.round(r.perServing.protein_g * r.servings)} C
+              {Math.round(r.perServing.carbs_g * r.servings)} F
+              {Math.round(r.perServing.fat_g * r.servings)}
+            </p>
+          </button>
+          <button
+            onClick={() => onQuickLog(r)}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full"
+            style={{ background: "var(--color-accent)", color: "#0b0f1a" }}
+            aria-label={`Log ${r.name} again`}
+          >
+            <PlusIcon className="h-5 w-5" />
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function SearchTab({ onPick }: { onPick: (s: Selectable) => void }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<OffFood[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiMsg, setAiMsg] = useState<string | null>(null);
 
   async function run() {
     if (!q.trim()) return;
     setLoading(true);
     setErr(null);
+    setAiMsg(null);
     setSearched(true);
     try {
       setResults(await searchFoods(q));
@@ -173,6 +275,39 @@ function SearchTab({ onPick }: { onPick: (s: Selectable) => void }) {
       setErr(String((e as Error).message));
     } finally {
       setLoading(false);
+    }
+  }
+
+  // Coverage aid: OFF is weak on whole/regional foods. When search finds nothing,
+  // let the text-AI estimate this food's macros and save it as a reusable food.
+  async function estimateWithAI() {
+    if (!q.trim()) return;
+    setAiLoading(true);
+    setAiMsg(null);
+    try {
+      const food = await describeMeal(q.trim());
+      if (!food) {
+        setAiMsg(
+          "AI estimate needs the food-text function deployed + a Gemini key (live app only). Meanwhile, add it under Custom.",
+        );
+        return;
+      }
+      onPick({
+        name: food.name || q.trim(),
+        perServing: {
+          calories: food.calories,
+          protein_g: food.protein_g,
+          carbs_g: food.carbs_g,
+          fat_g: food.fat_g,
+        },
+        servingLabel: "1 serving",
+        editableName: true,
+        savable: true,
+      });
+    } catch (e) {
+      setAiMsg(String((e as Error).message));
+    } finally {
+      setAiLoading(false);
     }
   }
 
@@ -202,7 +337,25 @@ function SearchTab({ onPick }: { onPick: (s: Selectable) => void }) {
       {loading && <Spinner />}
       {err && <p className="text-sm" style={{ color: "var(--color-protein)" }}>{err}</p>}
       {!loading && searched && results.length === 0 && !err && (
-        <p className="text-sm text-muted">No matches. Try a barcode or add a custom food.</p>
+        <div className="space-y-2">
+          <p className="text-sm text-muted">
+            No matches in Open Food Facts — common for whole foods and local dishes.
+          </p>
+          <Button
+            variant="subtle"
+            block
+            disabled={aiLoading}
+            onClick={estimateWithAI}
+            style={{ color: "var(--color-accent)" }}
+          >
+            {aiLoading ? "Estimating…" : `✨ Estimate "${q.trim()}" with AI`}
+          </Button>
+          {aiMsg && (
+            <p className="text-xs" style={{ color: "var(--color-carbs)" }}>
+              {aiMsg}
+            </p>
+          )}
+        </div>
       )}
       <div className="space-y-1.5">
         {results.map((r) => (
@@ -531,7 +684,7 @@ function SavedTab({ onPick }: { onPick: (s: Selectable) => void }) {
 function CustomTab({ onPick }: { onPick: (s: Selectable) => void }) {
   const [name, setName] = useState("");
   const [servingLabel, setServingLabel] = useState("");
-  const [m, setM] = useState<Macros>({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
+  const [m, setM] = useState<Macros>({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 });
   const [saving, setSaving] = useState(false);
   const patch = (p: Partial<Macros>) => setM((s) => ({ ...s, ...p }));
 
@@ -557,6 +710,7 @@ function CustomTab({ onPick }: { onPick: (s: Selectable) => void }) {
         <MacroField label="Protein g" value={m.protein_g} step={1} onChange={(v) => patch({ protein_g: v })} />
         <MacroField label="Carbs g" value={m.carbs_g} step={1} onChange={(v) => patch({ carbs_g: v })} />
         <MacroField label="Fat g" value={m.fat_g} step={1} onChange={(v) => patch({ fat_g: v })} />
+        <MacroField label="Fiber g (optional)" value={m.fiber_g ?? 0} step={1} onChange={(v) => patch({ fiber_g: v })} />
       </div>
       <Button
         block
@@ -571,6 +725,7 @@ function CustomTab({ onPick }: { onPick: (s: Selectable) => void }) {
               protein_g: m.protein_g,
               carbs_g: m.carbs_g,
               fat_g: m.fat_g,
+              fiber_g: m.fiber_g ? m.fiber_g : null,
             });
             onPick(foodToSelectable(food));
           } finally {
@@ -621,8 +776,8 @@ function ServingStep({
   onBack: () => void;
   onLogged: () => void;
 }) {
-  const [servings, setServings] = useState(1);
-  const [meal, setMeal] = useState<MealType>(guessMeal());
+  const [servings, setServings] = useState(item.initialServings ?? 1);
+  const [meal, setMeal] = useState<MealType>(item.initialMeal ?? guessMeal());
   const [saveIt, setSaveIt] = useState(false);
   const [name, setName] = useState(item.name);
   const [busy, setBusy] = useState(false);

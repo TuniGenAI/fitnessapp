@@ -40,6 +40,7 @@ interface CoachRequest {
     suggestion?: string; // e.g. "62.5 kg × 5"
   }[];
   summary?: string; // for recap/reaction
+  history?: string; // recent recaps, for cross-session continuity
 }
 
 function buildPrompt(req: CoachRequest): string {
@@ -71,6 +72,12 @@ function buildPrompt(req: CoachRequest): string {
     }
   }
   if (req.summary) lines.push(req.summary);
+  if (req.history) {
+    lines.push(
+      "Recent sessions (reference the trend — a stall, a streak, or steady progress — don't just repeat it):",
+    );
+    lines.push(req.history);
+  }
   return lines.join("\n");
 }
 

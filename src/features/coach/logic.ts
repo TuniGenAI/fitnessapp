@@ -61,6 +61,8 @@ export interface RecapContext {
   totalVolumeKg: number;
   prCount: number;
   topExercise?: { name: string; best: string };
+  /** Completed sessions this week including this one (cross-session continuity). */
+  trainedThisWeek?: number;
 }
 
 const RECAP_WINS = [
@@ -89,9 +91,14 @@ export function buildRecap(ctx: RecapContext): string {
     ctx.prCount > 0
       ? " Next time, try to add a rep or a little load and keep the streak alive."
       : " Next time, aim to beat one number from today — one more rep or 2.5 kg.";
+  // Cross-session continuity: acknowledge the week's consistency (ROADMAP #10).
+  const week =
+    ctx.trainedThisWeek && ctx.trainedThisWeek >= 2
+      ? ` That's ${ctx.trainedThisWeek} sessions banked this week — consistency is compounding.`
+      : "";
   return `${win}: ${ctx.workingSets} working sets, ${Math.round(
     ctx.totalVolumeKg,
-  ).toLocaleString()} kg moved.${pr}${top}${next}`;
+  ).toLocaleString()} kg moved.${pr}${top}${week}${next}`;
 }
 
 /** One-line rule-based reaction to a just-logged set. */

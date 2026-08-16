@@ -16,6 +16,8 @@ export interface OffFood {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  /** Grams of fiber, when Open Food Facts publishes it (else null). */
+  fiber_g: number | null;
 }
 
 const BASE = "https://world.openfoodfacts.org";
@@ -63,6 +65,11 @@ function normalize(p: OffProduct): OffFood | null {
     protein_g: Math.round(num(n[`proteins${suffix}`]) * 10) / 10,
     carbs_g: Math.round(num(n[`carbohydrates${suffix}`]) * 10) / 10,
     fat_g: Math.round(num(n[`fat${suffix}`]) * 10) / 10,
+    // Fiber is often absent — keep it null rather than a misleading 0.
+    fiber_g:
+      n[`fiber${suffix}`] != null
+        ? Math.round(num(n[`fiber${suffix}`]) * 10) / 10
+        : null,
   };
 }
 

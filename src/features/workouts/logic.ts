@@ -42,9 +42,14 @@ export interface TargetSuggestion {
  * Rule-based next-target suggester (works with no AI — CLAUDE.md §7 fallback).
  *
  * Looks at last session's top working weight:
- *   • hit the top of the rep range → add the smallest load increment, reset to
- *     the bottom of the range;
+ *   • hit the top of the rep range → add a load increment (a double jump when the
+ *     set was genuinely easy — RPE ≤ 6), reset to the bottom of the range;
  *   • otherwise → keep the weight and chase one more rep.
+ *
+ * RPE (when logged) sharpens the call: it tells an easy top set from a grind, so
+ * the suggestion can push harder when there's clearly gas left, or hold when the
+ * last set was already near failure. RPE stays optional — the logic degrades to
+ * the plain double-progression above when it's absent.
  */
 export function suggestNextTarget(
   lastSets: WorkoutSet[],
@@ -58,23 +63,75 @@ export function suggestNextTarget(
   const topWeight = Math.max(...working.map((s) => s.weight_kg));
   const setsAtTop = working.filter((s) => s.weight_kg === topWeight);
   const worstReps = Math.min(...setsAtTop.map((s) => s.reps));
+  // Hardest effort recorded at the top weight (highest RPE), if any set was rated.
+  const rpes = setsAtTop.map((s) => s.rpe).filter((r): r is number => r != null);
+  const topRpe = rpes.length ? Math.max(...rpes) : null;
+  const rpeNote = topRpe != null ? ` @RPE ${trim(topRpe)}` : "";
 
   if (worstReps >= repHigh) {
     const inc = weightIncrementKg(unit);
-    const weightKg = roundTo(topWeight + inc, inc);
-    const added = trim(toDisplayWeight(inc, unit));
+    // Genuinely easy at the top of the range → jump two increments.
+    const steps = topRpe != null && topRpe <= 6 ? 2 : 1;
+    const weightKg = roundTo(topWeight + inc * steps, inc);
+    const added = trim(toDisplayWeight(inc * steps, unit));
+    const easy = steps === 2 ? " — that was easy, bigger jump" : "";
     return {
       weightKg,
       reps: repLow,
-      reason: `Hit ${repHigh} reps last time — add ${added} ${unit}`,
+      reason: `Hit ${repHigh} reps${rpeNote} last time — add ${added} ${unit}${easy}`,
     };
   }
 
+  // Didn't finish the range. If the last set was already near failure, holding
+  // the weight to consolidate is the honest call; otherwise chase a rep.
   const reps = Math.min(worstReps + 1, repHigh);
+  if (topRpe != null && topRpe >= 9.5) {
+    return {
+      weightKg: topWeight,
+      reps,
+      reason: `Near failure${rpeNote} last time — hold and own this weight for ${reps}`,
+    };
+  }
   return {
     weightKg: topWeight,
     reps,
-    reason: `Chase ${reps} reps at the same weight`,
+    reason: `Chase ${reps} reps at the same weight${rpeNote}`,
+  };
+}
+
+// ---- Stall detection → deload ----------------------------------------------
+/** A session's best working set scored by estimated 1RM (0 if none logged). */
+export function sessionBestE1RM(sets: WorkoutSet[]): number {
+  const b = bestSet(sets);
+  return b ? estimatedOneRepMax(b.weight_kg, b.reps) : 0;
+}
+
+/**
+ * Stalled = three recent sessions with no upward progress. Given each session's
+ * best estimated-1RM newest-first, returns true when the newest hasn't beaten the
+ * session two back — a flat/declining top end that a plain "+2.5 kg" won't fix.
+ */
+export function detectStall(recentBestE1RMs: number[]): boolean {
+  const s = recentBestE1RMs.filter((x) => x > 0);
+  if (s.length < 3) return false;
+  const newest = s[0];
+  const thirdBack = s[2];
+  return newest <= thirdBack + 1e-6;
+}
+
+/** Deload: back off ~10% from the top weight to rebuild with clean reps. */
+export function deloadTarget(
+  topWeightKg: number,
+  repHigh: number,
+  unit: WeightUnit,
+): TargetSuggestion {
+  const inc = weightIncrementKg(unit);
+  const weightKg = Math.max(inc, roundTo(topWeightKg * 0.9, inc));
+  const off = trim(toDisplayWeight(Math.max(0, topWeightKg - weightKg), unit));
+  return {
+    weightKg,
+    reps: repHigh,
+    reason: `Stalled 3 sessions — deload ${off} ${unit} and rebuild with clean reps`,
   };
 }
 

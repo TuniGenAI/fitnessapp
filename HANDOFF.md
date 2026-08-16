@@ -1,12 +1,86 @@
 # HANDOFF — build context for the next conversation
 
-> Read this first (after `CLAUDE.md` / `PRD.md` / `TASKS.md`) for full context. Last updated: **2026-08-14**.
+> Read this first (after `CLAUDE.md` / `PRD.md` / `TASKS.md`) for full context. Last updated: **2026-08-16**.
 >
-> **TL;DR:** Phase-1 is **complete and live** — all features (M0–M7) built, deployed to Vercel, backend on Supabase, AI functions deployed, Gemini key set. `npm run build` green. Only Milestone 8 (owner's iPhone-PWA end-to-end pass) and one parked item (offline logging) remain. See the Runbook near the bottom for ops.
+> **TL;DR:** Phase-1 is **complete and live** — all features (M0–M7) built, deployed to Vercel, backend on Supabase, AI functions deployed, Gemini key set. `npm run build` green. Post-Phase-1 work now follows [`ROADMAP.md`](./ROADMAP.md) (from the competitive audit vs MacroFactor / MFP / Strong). Only Milestone 8 (owner's iPhone-PWA end-to-end pass) and one parked item (offline logging) remain from Phase 1. See the Runbook near the bottom for ops.
 
 ---
 
 ## Where we are
+
+> **🏁 Tier 2 + Tier 3 complete (2026-08-16, app v0.12.0).** ROADMAP items #8–#14 — the whole audit backlog
+> is now shipped (v0.9.0 → v0.12.0). **⚠️ Includes a DB migration to apply + an edge-function redeploy.**
+> - **#8 Stall→deload:** `detectStall` + `deloadTarget` in `workouts/logic.ts`; `getRecentSessionBestE1RMs`
+>   (api) feeds the logger, which swaps the suggestion for a ~10% deload after 3 flat sessions. Pure-logic; traced.
+> - **#9 Custom-food AI aid:** OFF search empty-state gains an "✨ Estimate with AI" button (reuses `describeMeal`).
+>   *(Empty-results branch couldn't be exercised in the sandbox — OFF is CORS-blocked there — but is build-clean.)*
+> - **#10 Coach memory:** recap passes `trainedThisWeek` (rule-based continuity line in `buildRecap`) + a recent-recap
+>   digest to the **`coach` edge function** (`supabase/functions/coach/index.ts` gained a `history` field) — **redeploy `coach`**.
+> - **#11 Progress photos:** Body screen add/view/delete; client-downscaled to ~720px JPEG, stored as a data URL in the
+>   new **`progress_photos`** table. Verified: PNG→~1KB JPEG stored + thumbnail rendered. *(Storage bucket = future upgrade.)*
+> - **#12 Tape measurements:** optional waist/chest/arms/thighs/hips in the weigh-in sheet → new **`body_metrics`**
+>   columns; shown as a "Measurements (cm)" panel. Verified: stored + displayed.
+> - **#13 In-app nudges:** one dismissible, data-driven dashboard nudge (`computeNudge` in `DashboardPage`), per-day
+>   dismissal in localStorage. Verified: rendered + prioritized the in-progress workout.
+> - **#14 Data export:** Settings → "Export my data (JSON)" (`src/lib/exportData.ts`) — every user-owned table
+>   (Gemini key stripped), demo + backend. Verified: produced a 7.4 KB JSON blob.
+> - **⚠️ MIGRATION TO APPLY:** `supabase/migrations/20260813120800_body_extras.sql` (body_metrics tape columns +
+>   `progress_photos` table + RLS + `notify pgrst`). **Also redeploy the `coach` edge function** (now sends `history`).
+> - `npm run build` green; demo-mode browser pass for the observable features, zero app-side console errors.
+
+> **🥗 Recents quick-add + fiber (2026-08-16, app v0.11.0).** ROADMAP items #5 + #7 (and #6 was found
+> **already done**). **⚠️ Includes a DB migration to apply on deploy.**
+> - **Recents (#5):** new **"Recent"** tab (now the default) in `AddFoodSheet` — `listRecentFoods()`
+>   (`nutrition/api.ts`) returns distinct recently-logged foods newest-first with per-serving macros
+>   reconstructed from the denormalized log. Row tap → confirm step prefilled with last servings/meal; the
+>   green **＋** re-logs instantly. Verified: quick-log created a 2nd identical entry (meal + fiber preserved).
+> - **Fiber (#7):** captured from Open Food Facts (`off.ts`, null when absent), stored on new
+>   **`foods.fiber_g` + `food_logs.fiber_g`**, enterable in the Custom-food form, shown as a daily total
+>   under the rings + `· Fib N` per row. `Macros.fiber_g` is **optional** (kept the 4 rings untouched;
+>   photo/text AI paths simply omit it). Verified: custom food stored `fiber:12`, log `fiber_g:12`, row shows "· Fib 12".
+> - **#6 meal buckets — no work needed:** the audit claim was wrong. `guessMeal()` + `ServingStep`'s meal
+>   picker + `FoodLogList` grouping (Breakfast/Lunch/Dinner/Snack) were already shipped. Confirmed live.
+> - **⚠️ MIGRATION TO APPLY:** `supabase/migrations/20260813120700_food_fiber.sql` (adds both `fiber_g`
+>   columns, ends with `notify pgrst`). Apply alongside the RPE migration below. Types already updated.
+> - `npm run build` green; demo-mode browser pass, zero console errors.
+
+> **⏱️ Rest timer + optional RPE (2026-08-16, app v0.10.0).** ROADMAP items #3 + #4 — workout-side table
+> stakes. **⚠️ This batch includes a DB migration that must be applied on deploy** (see below).
+> - **Rest timer (#3):** auto-starts a countdown after each *working* set (skips warm-ups). Floating bar
+>   above the nav with −15/+15/Skip and a haptic+beep cue at zero (`restDoneCue`, best-effort — iOS Safari
+>   ignores vibrate harmlessly). Prefs (on/off + default duration) live in **localStorage**, not the DB —
+>   `src/features/workouts/restTimer.ts`, surfaced in Settings → "Rest timer". No schema change for this part.
+> - **RPE (#4):** optional 6–10 chip row in `WorkoutLogger`'s `ExerciseLogCard` (tap to set/clear; hidden on
+>   warm-ups; resets after each log so it never slows the core loop). Stored on a new **`workout_sets.rpe`**
+>   column (`numeric(3,1)`, nullable). Shows as `@8` on logged rows. `suggestNextTarget` (`logic.ts`) now reads
+>   it: RPE ≤ 6 at the top of the range → **double** load jump; last set ≥ 9.5 → **hold and consolidate**;
+>   absent → unchanged double-progression. Feeding RPE into the Gemini `coach` edge-function prompt is a later step.
+> - **⚠️ MIGRATION TO APPLY:** `supabase/migrations/20260813120600_workout_set_rpe.sql` (adds `rpe`, ends with
+>   `notify pgrst`). Paste into the Supabase SQL Editor before/at deploy, or REST inserts referencing `rpe` will
+>   fail with `PGRST205` until the schema cache reloads. Types already updated in `src/types/database.ts`.
+> - Verified: `npm run build` green; demo-mode browser pass — RPE chip stores `rpe:8` + renders `@8`, rest timer
+>   counts down 2:00 with working −15/Skip, Settings section toggles, zero console errors.
+
+> **📈 Adaptive TDEE engine (2026-08-16, app v0.9.0).** ROADMAP item #1 (+#2) — the MacroFactor-style
+> differentiator. The app no longer relies only on the one-time Mifflin formula: it **back-calculates
+> real maintenance calories** from logged intake + smoothed weight trend, then sets targets from a
+> **weekly rate-of-change** slider. Frontend-only (no schema/edge-function change) — push to `main` deploys.
+> - **Pure engine** `src/features/nutrition/adaptiveTdee.ts`: `estimateExpenditure(intake, weights)` uses
+>   `expenditure ≈ avgIntake − (Δtrend-weight × 7700)/days` over a rolling ~21-day window, with
+>   confidence gating (needs ≥10 logged days + ≥10-day weigh-in span, else returns null); `targetsFromRate`
+>   derives calories/macros from a kg/week rate (protein 2 g/kg, fat 25%, carbs remainder — same split as `tdee.ts`).
+> - **Data wrapper** `getExpenditureEstimate()` in `nutrition/api.ts` gathers per-day calories from
+>   `food_logs` + one weigh-in/day from `body_metrics`; no raw logs leave the function.
+> - **UI:** third **"Adaptive"** tab in `GoalsEditor` (now default; old calculator renamed **"Formula"**,
+>   Manual unchanged). Shows estimated maintenance + a rate slider (−1.0…+0.5 kg/week) with a live
+>   calorie/macro preview. Saves with `source: "calculated"`; the chosen rate persists in `localStorage`
+>   (`fitnessapp.goalRate`) — **no DB migration needed** for this slice.
+> - **Graceful degradation:** with <2 weeks of data the Adaptive tab shows an honest "Not enough data yet"
+>   state and a "Use the formula instead" button that switches to the Formula tab. Never dead-ends.
+> - Verified: `npm run build` green; math sanity-checked against a cutting scenario (ate 2410, trend −0.95 kg/20 d
+>   → expenditure 2775, −0.5 kg/wk target 2225); demo-mode browser pass — Adaptive tab renders, empty-state +
+>   fallback work, zero console errors. The real-estimate path needs ~2 weeks of live logs to light up.
+> - **Next on the roadmap:** #3 rest timer, #4 optional RPE/RIR (both workout-side). See [`ROADMAP.md`](./ROADMAP.md).
 
 **Milestones 0–7 are code-complete.** M0 (foundations) + M1 (schema, applied live) were done earlier; **M2–M7 (workouts, AI coach, nutrition, supplements, body, dashboard) were built and verified in demo mode on 2026-08-13.** `npm run build` is green (TS + PWA). The app is fully usable end-to-end in **demo mode** (local-first store, no backend needed) and against the live Supabase backend once signed in.
 

@@ -110,6 +110,25 @@ export function DashboardPage() {
   const totals = useMemo(() => addMacros(foodTotals, suppTotals), [foodTotals, suppTotals]);
   const hasGoals = Boolean(goals?.calorie_target);
   const waterGoal = goals?.water_target_ml ?? 3000;
+
+  // Gentle, data-driven nudge (ROADMAP #13) — dismissible for the day.
+  const nudgeKey = `fitnessapp.nudgeDismissed.${todayISO()}`;
+  const [nudgeDismissed, setNudgeDismissed] = useState(() =>
+    typeof localStorage !== "undefined" && localStorage.getItem(nudgeKey) === "1",
+  );
+  const nudge = useMemo(
+    () =>
+      computeNudge({
+        hasGoals,
+        calories: totals.calories,
+        protein: totals.protein_g,
+        proteinGoal: goals?.protein_target_g ?? 0,
+        hour: new Date().getHours(),
+        hasActiveWorkout: Boolean(active),
+        session,
+      }),
+    [hasGoals, totals.calories, totals.protein_g, goals?.protein_target_g, active, session],
+  );
   const macroPct =
     hasGoals && goals?.calorie_target
       ? Math.round((totals.calories / goals.calorie_target) * 100)
@@ -145,6 +164,33 @@ export function DashboardPage() {
           <span className="font-display">{trainedThisWeek}</span>
         </div>
       </header>
+
+      {/* Nudge */}
+      {nudge && !nudgeDismissed && (
+        <button
+          onClick={() => {
+            if (nudge.href) navigate(nudge.href);
+          }}
+          className="flex w-full items-start gap-3 rounded-[var(--radius-card)] p-3 text-left"
+          style={{ background: "var(--color-surface-2)", border: "1px solid var(--color-line)" }}
+        >
+          <span className="text-lg leading-none">{nudge.emoji}</span>
+          <span className="min-w-0 flex-1 text-sm">{nudge.text}</span>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              localStorage.setItem(nudgeKey, "1");
+              setNudgeDismissed(true);
+            }}
+            className="shrink-0 rounded-full px-2 py-0.5 text-xs font-bold text-muted"
+            style={{ background: "var(--color-line)" }}
+          >
+            ✕
+          </span>
+        </button>
+      )}
 
       {/* Weekly strip */}
       <section className="card-2 flex items-center justify-around p-3">
@@ -256,6 +302,42 @@ export function DashboardPage() {
       <SupplementChecklist onChange={refreshMacros} />
     </div>
   );
+}
+
+interface Nudge {
+  text: string;
+  emoji: string;
+  href?: string;
+}
+
+/** Pick the single most relevant gentle nudge from today's state, or none. */
+function computeNudge(s: {
+  hasGoals: boolean;
+  calories: number;
+  protein: number;
+  proteinGoal: number;
+  hour: number;
+  hasActiveWorkout: boolean;
+  session: TodaySession | null;
+}): Nudge | null {
+  // A workout already in progress — nudge to resume it.
+  if (s.hasActiveWorkout) {
+    return { text: "You've got a workout in progress — jump back in and finish strong.", emoji: "🏋️", href: "/workouts" };
+  }
+  // Nothing eaten yet, but goals are set — prompt to start logging.
+  if (s.hasGoals && s.calories === 0) {
+    return { text: "No food logged yet today. Tap Fuel to start hitting your macros.", emoji: "🍽️", href: "/nutrition" };
+  }
+  // Behind on protein in the afternoon/evening.
+  if (s.hasGoals && s.proteinGoal > 0 && s.hour >= 15 && s.protein < s.proteinGoal * 0.5) {
+    const left = Math.round(s.proteinGoal - s.protein);
+    return { text: `You're behind on protein — about ${left} g to go. Plan the rest of your day on Fuel.`, emoji: "💪", href: "/nutrition" };
+  }
+  // A session is planned and untouched — nudge to train.
+  if (s.session && s.session.exerciseNames.length > 0) {
+    return { text: `Today's ${s.session.dayName} is ready when you are.`, emoji: "🔥", href: "/workouts" };
+  }
+  return null;
 }
 
 function greeting() {

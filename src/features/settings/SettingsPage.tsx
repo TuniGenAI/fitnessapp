@@ -5,6 +5,15 @@ import { useProfile } from "@/features/profile/ProfileProvider";
 import { useTheme, type Theme } from "@/lib/theme";
 import { Segmented, Button } from "@/components/ui";
 import type { CoachMode, WeightUnit, VolumeUnit } from "@/types";
+import {
+  restTimerOn,
+  setRestTimerOn,
+  restSeconds,
+  setRestSeconds,
+  REST_PRESETS,
+  formatClock,
+} from "@/features/workouts/restTimer";
+import { exportAllData, downloadJson } from "@/lib/exportData";
 
 export function SettingsPage() {
   const { displayName, user, demo, configured, signOut } = useAuth();
@@ -15,6 +24,13 @@ export function SettingsPage() {
   const [savedKey, setSavedKey] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
   const hasKey = Boolean(profile?.gemini_api_key);
+
+  // Rest-timer prefs live in localStorage (device preference, not synced).
+  const [restOn, setRestOn] = useState(restTimerOn);
+  const [restSecs, setRestSecs] = useState(restSeconds);
+
+  const [exporting, setExporting] = useState(false);
+  const [exportErr, setExportErr] = useState<string | null>(null);
 
   return (
     <div className="space-y-5">
@@ -90,6 +106,54 @@ export function SettingsPage() {
             ? "Follows your device's light / dark setting."
             : `Always ${theme}.`}
         </p>
+      </section>
+
+      {/* Workout */}
+      <section className="card space-y-3 p-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Rest timer</h2>
+          <button
+            onClick={() => {
+              const next = !restOn;
+              setRestOn(next);
+              setRestTimerOn(next);
+            }}
+            className="rounded-full px-3 py-1.5 text-xs font-bold"
+            style={{
+              background: restOn ? "var(--color-accent)" : "var(--color-surface-2)",
+              color: restOn ? "#0b0f1a" : "var(--color-muted)",
+            }}
+          >
+            {restOn ? "On" : "Off"}
+          </button>
+        </div>
+        <p className="text-xs text-muted">
+          Starts a countdown automatically after each working set. Adjust or skip it
+          from the timer while training.
+        </p>
+        {restOn && (
+          <div>
+            <p className="mb-1.5 text-sm">Default rest</p>
+            <div className="flex gap-1.5">
+              {REST_PRESETS.map((s) => (
+                <button
+                  key={s}
+                  onClick={() => {
+                    setRestSecs(s);
+                    setRestSeconds(s);
+                  }}
+                  className="flex-1 rounded-lg py-2 text-xs font-bold transition"
+                  style={{
+                    background: restSecs === s ? "var(--color-brand)" : "var(--color-surface-2)",
+                    color: restSecs === s ? "#fff" : "var(--color-muted)",
+                  }}
+                >
+                  {formatClock(s)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </section>
 
       {/* AI Coach */}
@@ -179,6 +243,39 @@ export function SettingsPage() {
         </div>
       </section>
 
+      {/* Data */}
+      <section className="card space-y-3 p-4">
+        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Your data</h2>
+        <p className="text-xs text-muted">
+          Download everything you've logged — workouts, food, body metrics, photos — as
+          a single JSON file. Your data, yours to keep.
+        </p>
+        <Button
+          block
+          variant="subtle"
+          disabled={exporting}
+          onClick={async () => {
+            setExporting(true);
+            setExportErr(null);
+            try {
+              const data = await exportAllData();
+              downloadJson(data);
+            } catch (e) {
+              setExportErr((e as Error).message ?? String(e));
+            } finally {
+              setExporting(false);
+            }
+          }}
+        >
+          {exporting ? "Preparing…" : "Export my data (JSON)"}
+        </Button>
+        {exportErr && (
+          <p className="text-xs" style={{ color: "var(--color-protein)" }}>
+            Export failed: {exportErr}
+          </p>
+        )}
+      </section>
+
       {/* Setup status */}
       <section className="card p-4">
         <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Setup status</h2>
@@ -188,7 +285,7 @@ export function SettingsPage() {
         </ul>
       </section>
 
-      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.8.0</p>
+      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.12.0</p>
     </div>
   );
 }

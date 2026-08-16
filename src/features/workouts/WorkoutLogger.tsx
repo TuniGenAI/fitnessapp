@@ -22,10 +22,13 @@ import {
   listProgramExercises,
   listSets,
   getLastWorkoutSets,
+  getRecentSessionBestE1RMs,
   logSet,
   deleteSet,
   completeWorkout,
+  listWorkouts,
 } from "./api";
+import { todayISO } from "@/lib/format";
 import {
   bestSet,
   suggestNextTarget,
@@ -33,11 +36,19 @@ import {
   setVolume,
   estimatedOneRepMax,
   prTypeLabel,
+  detectStall,
+  deloadTarget,
   type TargetSuggestion,
 } from "./logic";
 import { ExercisePicker } from "./ExercisePicker";
 import { getRecap, saveCoachMessage } from "@/features/coach/api";
 import { reactionForSet } from "@/features/coach/logic";
+import {
+  restTimerOn,
+  restSeconds,
+  restDoneCue,
+  formatClock,
+} from "./restTimer";
 
 interface Entry {
   exercise: Exercise;
@@ -67,6 +78,8 @@ export function WorkoutLogger({
   const [recap, setRecap] = useState<{ text: string; ai: boolean } | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [confirmEmpty, setConfirmEmpty] = useState(false);
+  // Rest timer: {startedAt, seconds} while a rest is running, else null.
+  const [rest, setRest] = useState<{ startedAt: number; seconds: number } | null>(null);
 
   function flashToast(msg: string) {
     setToast(msg);
@@ -109,12 +122,25 @@ export function WorkoutLogger({
         if (!exercise) return null;
         const exSets = sets.filter((s) => s.exercise_id === id);
         const last = await getLastWorkoutSets(id, workout.id);
-        const suggestion = suggestNextTarget(
+        const repHigh = target?.target_reps_high ?? 12;
+        let suggestion = suggestNextTarget(
           last,
           target?.target_reps_low ?? 8,
-          target?.target_reps_high ?? 12,
+          repHigh,
           unit,
         );
+        // If the last 3 sessions haven't progressed, suggest a deload instead of
+        // repeating a jump that isn't landing (ROADMAP #8).
+        if (suggestion) {
+          const recentE1RMs = await getRecentSessionBestE1RMs(id, workout.id, 3);
+          if (detectStall(recentE1RMs)) {
+            const working = workingSets(last);
+            const topWeight = working.length
+              ? Math.max(...working.map((s) => s.weight_kg))
+              : suggestion.weightKg;
+            suggestion = deloadTarget(topWeight, repHigh, unit);
+          }
+        }
         return { exercise, target, sets: exSets, last, suggestion } as Entry;
       }),
     );
@@ -127,14 +153,25 @@ export function WorkoutLogger({
     load();
   }, [load]);
 
-  async function onLog(entry: Entry, weightKg: number, reps: number, warmup: boolean) {
+  async function onLog(
+    entry: Entry,
+    weightKg: number,
+    reps: number,
+    warmup: boolean,
+    rpe: number | null,
+  ) {
     const { celebrated } = await logSet({
       workout_id: workout.id,
       exercise_id: entry.exercise.id,
       weight_kg: weightKg,
       reps,
+      rpe,
       is_warmup: warmup,
     });
+    // Kick off the rest countdown after a real working set (opt-out in Settings).
+    if (!warmup && restTimerOn()) {
+      setRest({ startedAt: Date.now(), seconds: restSeconds() });
+    }
     if (celebrated.length > 0) {
       celebrate();
       flashToast(celebrated.map((c: RecordType) => `🏆 ${prTypeLabel(c)} PR!`).join("  "));
@@ -181,6 +218,21 @@ export function WorkoutLogger({
         top = { name: e.exercise.name, best: `${formatWeight(b.weight_kg, unit)} × ${b.reps}` };
       }
     }
+    // Sessions completed this week (incl. this one) — cross-session continuity.
+    let trainedThisWeek = 1;
+    try {
+      const weekAgo = todayISO(new Date(Date.now() - 6 * 86400000));
+      const done = await listWorkouts(100);
+      const days = new Set(
+        done
+          .filter((x) => x.completed_at && todayISO(new Date(x.started_at)) >= weekAgo)
+          .map((x) => todayISO(new Date(x.started_at))),
+      );
+      days.add(todayISO(new Date(workout.started_at)));
+      trainedThisWeek = days.size;
+    } catch {
+      /* non-fatal — fall back to just this session */
+    }
     const result = await getRecap(
       {
         dayName: workout.name ?? "Training",
@@ -188,6 +240,7 @@ export function WorkoutLogger({
         totalVolumeKg,
         prCount,
         topExercise: top,
+        trainedThisWeek,
       },
       coachEnabled,
     );
@@ -216,7 +269,7 @@ export function WorkoutLogger({
               key={e.exercise.id}
               entry={e}
               unit={unit}
-              onLog={(w, r, warm) => onLog(e, w, r, warm)}
+              onLog={(w, r, warm, rpe) => onLog(e, w, r, warm, rpe)}
               onDeleteSet={async (id) => {
                 await deleteSet(id);
                 await load();
@@ -293,8 +346,21 @@ export function WorkoutLogger({
         </Sheet>
       )}
 
+      {rest && (
+        <RestTimer
+          startedAt={rest.startedAt}
+          seconds={rest.seconds}
+          onChangeSeconds={(s) => setRest((r) => (r ? { ...r, seconds: s } : r))}
+          onClose={() => setRest(null)}
+        />
+      )}
+
       {toast && (
-        <div className="fixed inset-x-0 bottom-24 z-40 flex justify-center px-4">
+        <div
+          className={`fixed inset-x-0 z-40 flex justify-center px-4 ${
+            rest ? "bottom-40" : "bottom-24"
+          }`}
+        >
           <div
             className="rounded-full px-5 py-3 text-sm font-bold shadow-lg"
             style={{ background: "var(--color-accent)", color: "#0b0f1a" }}
@@ -304,6 +370,105 @@ export function WorkoutLogger({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Floating rest countdown, shown after a working set. Auto-fires a haptic/beep
+ * cue at zero, then can be adjusted (±15s), skipped, or dismissed. Fixed above
+ * the bottom nav so it stays visible while the set list scrolls.
+ */
+function RestTimer({
+  startedAt,
+  seconds,
+  onChangeSeconds,
+  onClose,
+}: {
+  startedAt: number;
+  seconds: number;
+  onChangeSeconds: (s: number) => void;
+  onClose: () => void;
+}) {
+  const [now, setNow] = useState(() => Date.now());
+  const [cued, setCued] = useState(false);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(t);
+  }, []);
+
+  const remaining = Math.max(0, Math.round((startedAt + seconds * 1000 - now) / 1000));
+  const done = remaining === 0;
+
+  // Fire the completion cue once, and auto-dismiss shortly after.
+  useEffect(() => {
+    if (done && !cued) {
+      setCued(true);
+      restDoneCue();
+      const t = setTimeout(onClose, 2500);
+      return () => clearTimeout(t);
+    }
+  }, [done, cued, onClose]);
+
+  const pct = Math.min(100, Math.max(0, (remaining / seconds) * 100));
+
+  return (
+    <div className="fixed inset-x-0 bottom-20 z-40 px-4">
+      <div className="mx-auto max-w-md rounded-2xl p-3 shadow-lg card-2">
+        <div className="flex items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs font-semibold text-muted">
+                {done ? "Rest done — next set" : "Resting"}
+              </span>
+              <span
+                className="font-display text-lg font-bold tabular-nums"
+                style={{ color: done ? "var(--color-accent)" : "inherit" }}
+              >
+                {formatClock(remaining)}
+              </span>
+            </div>
+            <div
+              className="mt-1.5 h-1.5 overflow-hidden rounded-full"
+              style={{ background: "var(--color-line)" }}
+            >
+              <div
+                className="h-full rounded-full transition-[width] duration-300"
+                style={{
+                  width: `${done ? 100 : pct}%`,
+                  background: done ? "var(--color-accent)" : "var(--color-brand)",
+                }}
+              />
+            </div>
+          </div>
+          {!done && (
+            <div className="flex shrink-0 items-center gap-1">
+              <TimerChip label="−15" onClick={() => onChangeSeconds(Math.max(15, seconds - 15))} />
+              <TimerChip label="+15" onClick={() => onChangeSeconds(seconds + 15)} />
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold"
+            style={{ background: "var(--color-brand)", color: "#fff" }}
+          >
+            {done ? "Done" : "Skip"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TimerChip({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-lg px-2.5 py-1.5 text-xs font-semibold"
+      style={{ background: "var(--color-surface-2)", color: "var(--color-muted)" }}
+    >
+      {label}
+    </button>
   );
 }
 
@@ -357,7 +522,7 @@ function ExerciseLogCard({
 }: {
   entry: Entry;
   unit: "kg" | "lb";
-  onLog: (weightKg: number, reps: number, warmup: boolean) => void;
+  onLog: (weightKg: number, reps: number, warmup: boolean, rpe: number | null) => void;
   onDeleteSet: (id: string) => void;
 }) {
   const { exercise, target, sets, last, suggestion } = entry;
@@ -379,6 +544,7 @@ function ExerciseLogCard({
   const [weight, setWeight] = useState(initial.weight);
   const [reps, setReps] = useState(initial.reps);
   const [warmup, setWarmup] = useState(false);
+  const [rpe, setRpe] = useState<number | null>(null);
 
   const lastBest = bestSet(last);
 
@@ -440,6 +606,9 @@ function ExerciseLogCard({
                 </span>
                 <span className="font-medium">
                   {formatWeight(s.weight_kg, unit)} × {s.reps}
+                  {s.rpe != null && (
+                    <span className="ml-1 text-xs text-muted">@{trim(s.rpe)}</span>
+                  )}
                 </span>
                 {s.is_pr && (
                   <TrophyIcon className="h-4 w-4" style={{ color: "var(--color-accent)" }} />
@@ -475,6 +644,28 @@ function ExerciseLogCard({
         </div>
       </div>
 
+      {/* Optional RPE — effort rating, only relevant for working sets. Kept as a
+          quick tap-to-set / tap-to-clear row so it never slows the core loop. */}
+      {!warmup && (
+        <div className="mt-2.5 flex items-center gap-1.5">
+          <span className="mr-0.5 text-[11px] font-semibold text-muted">RPE</span>
+          {[6, 7, 8, 9, 10].map((v) => (
+            <button
+              key={v}
+              onClick={() => setRpe((cur) => (cur === v ? null : v))}
+              aria-pressed={rpe === v}
+              className="h-8 flex-1 rounded-lg text-xs font-bold transition"
+              style={{
+                background: rpe === v ? "var(--color-brand)" : "var(--color-surface-2)",
+                color: rpe === v ? "#fff" : "var(--color-muted)",
+              }}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="mt-2 flex items-center gap-2">
         <button
           onClick={() => setWarmup((w) => !w)}
@@ -489,7 +680,10 @@ function ExerciseLogCard({
         <Button
           block
           variant="accent"
-          onClick={() => onLog(fromDisplayWeight(weight, unit), reps, warmup)}
+          onClick={() => {
+            onLog(fromDisplayWeight(weight, unit), reps, warmup, warmup ? null : rpe);
+            setRpe(null);
+          }}
         >
           <CheckIcon className="h-4 w-4" /> Log set {trim(weight)}
           {unit} × {reps}

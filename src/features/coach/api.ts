@@ -59,13 +59,18 @@ export async function getRecap(
   // An empty session (nothing lifted) gets the honest rule-based line — no AI
   // call, so the coach never congratulates "0 kg moved".
   if (useAI && ctx.workingSets > 0 && ctx.totalVolumeKg > 0) {
+    // Cross-session memory (ROADMAP #10): give the AI a compact digest of the
+    // last couple of recaps so it can reference a multi-week narrative rather
+    // than reacting to today in isolation.
+    const history = await recentRecapDigest();
     const ai = await tryGemini("recap", {
       dayName: ctx.dayName,
       summary: `Summary: ${ctx.workingSets} working sets, ${Math.round(
         ctx.totalVolumeKg,
       )} kg total volume, ${ctx.prCount} PRs${
         ctx.topExercise ? `, top ${ctx.topExercise.name} ${ctx.topExercise.best}` : ""
-      }.`,
+      }.${ctx.trainedThisWeek ? ` ${ctx.trainedThisWeek} sessions this week.` : ""}`,
+      history,
     });
     if (ai) return { text: ai, ai: true };
   }
@@ -99,4 +104,23 @@ export async function listCoachMessages(workoutId?: string): Promise<CoachMessag
   if (workoutId) filter.workout_id = workoutId;
   const rows = await selectRows<CoachMessage>("coach_messages", filter);
   return rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+/**
+ * Compact digest of the last couple of recaps for the AI's cross-session memory.
+ * Kept short (prose model, quota-frugal) and best-effort — empty string on any
+ * failure so the recap call is never blocked by it.
+ */
+async function recentRecapDigest(limit = 2): Promise<string> {
+  try {
+    const msgs = (await listCoachMessages())
+      .filter((m) => m.role === "recap")
+      .slice(0, limit);
+    if (msgs.length === 0) return "";
+    return msgs
+      .map((m) => `• ${m.content.slice(0, 160)}`)
+      .join("\n");
+  } catch {
+    return "";
+  }
 }

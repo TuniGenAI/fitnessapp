@@ -12,8 +12,16 @@ import {
   type Sex,
   type TdeeInput,
 } from "./tdee";
+import {
+  targetsFromRate,
+  rateLabel,
+  type ExpenditureEstimate,
+} from "./adaptiveTdee";
+import { getExpenditureEstimate } from "./api";
+import { useAsync } from "@/lib/useAsync";
 
 const TDEE_KEY = "fitnessapp.tdee";
+const RATE_KEY = "fitnessapp.goalRate";
 
 interface SavedInputs {
   sex: Sex;
@@ -39,7 +47,7 @@ export function GoalsEditor({ open, onClose }: { open: boolean; onClose: () => v
   const { goals, updateGoals } = useProfile();
   const { profile } = useProfile();
   const unit = profile?.weight_unit ?? "kg";
-  const [mode, setMode] = useState<"calc" | "manual">("calc");
+  const [mode, setMode] = useState<"adaptive" | "calc" | "manual">("adaptive");
   const [error, setError] = useState<string | null>(null);
 
   // Save, closing only on success and surfacing any backend error instead of
@@ -60,7 +68,8 @@ export function GoalsEditor({ open, onClose }: { open: boolean; onClose: () => v
         value={mode}
         onChange={setMode}
         options={[
-          { value: "calc", label: "Calculator" },
+          { value: "adaptive", label: "Adaptive" },
+          { value: "calc", label: "Formula" },
           { value: "manual", label: "Manual" },
         ]}
       />
@@ -70,7 +79,21 @@ export function GoalsEditor({ open, onClose }: { open: boolean; onClose: () => v
         </p>
       )}
       <div className="mt-4">
-        {mode === "calc" ? (
+        {mode === "adaptive" ? (
+          <Adaptive
+            onSave={(t) =>
+              save({
+                source: "calculated",
+                goal_type: t.goal_type,
+                calorie_target: t.calories,
+                protein_target_g: t.protein_g,
+                carbs_target_g: t.carbs_g,
+                fat_target_g: t.fat_g,
+              })
+            }
+            onNeedFormula={() => setMode("calc")}
+          />
+        ) : mode === "calc" ? (
           <Calculator
             unit={unit}
             onSave={(t) =>
@@ -115,6 +138,137 @@ const GOALS: { value: GoalType; label: string }[] = [
   { value: "maintain", label: "Maintain" },
   { value: "bulk", label: "Bulk" },
 ];
+
+function loadRate(): number {
+  const raw = Number(localStorage.getItem(RATE_KEY));
+  return Number.isFinite(raw) ? raw : -0.5;
+}
+
+const CONFIDENCE_LABEL: Record<ExpenditureEstimate["confidence"], string> = {
+  high: "high confidence",
+  medium: "building confidence",
+  low: "early estimate",
+};
+
+/**
+ * Adaptive TDEE mode: back-calculates real expenditure from logged intake +
+ * weigh-ins, then sets targets from a weekly rate of change. Degrades to the
+ * Formula tab until there's enough data (~2 weeks of food logs + weigh-ins).
+ */
+function Adaptive({
+  onSave,
+  onNeedFormula,
+}: {
+  onSave: (t: {
+    goal_type: GoalType;
+    calories: number;
+    protein_g: number;
+    carbs_g: number;
+    fat_g: number;
+  }) => void;
+  onNeedFormula: () => void;
+}) {
+  const { data: est, loading } = useAsync(() => getExpenditureEstimate(), []);
+  const { data: weightKg } = useAsync(() => getLatestWeightKg(), []);
+  const [rate, setRate] = useState<number>(loadRate);
+
+  const targets = useMemo(() => {
+    if (!est || weightKg == null) return null;
+    return targetsFromRate(est.expenditure, rate, weightKg);
+  }, [est, weightKg, rate]);
+
+  if (loading) {
+    return <p className="text-sm text-muted">Reading your intake + weigh-ins…</p>;
+  }
+
+  // Not enough data yet — be honest and point at the formula path.
+  if (!est || weightKg == null) {
+    return (
+      <div className="space-y-3">
+        <div className="card-2 p-4">
+          <p className="text-sm font-semibold">Not enough data yet</p>
+          <p className="mt-1 text-xs text-muted">
+            The adaptive engine learns your real maintenance calories from about two
+            weeks of logged food and regular weigh-ins. Keep logging and it kicks in
+            automatically. For now, set a starting target from the formula.
+          </p>
+        </div>
+        <Button block variant="subtle" onClick={onNeedFormula}>
+          Use the formula instead
+        </Button>
+      </div>
+    );
+  }
+
+  const trendText =
+    est.weightChangeKg === 0
+      ? "held steady"
+      : `${est.weightChangeKg < 0 ? "down" : "up"} ${Math.abs(est.weightChangeKg)} kg`;
+
+  return (
+    <div className="space-y-4">
+      <div className="card-2 p-4">
+        <p className="text-xs text-muted">Your estimated maintenance</p>
+        <p className="font-display text-3xl font-bold">
+          {est.expenditure.toLocaleString()}{" "}
+          <span className="text-base font-medium text-muted">kcal/day</span>
+        </p>
+        <p className="mt-1 text-xs text-muted">
+          From {est.intakeDays} logged days over {est.daysCovered} days (weight{" "}
+          {trendText}) · {CONFIDENCE_LABEL[est.confidence]}
+        </p>
+      </div>
+
+      <div>
+        <p className="mb-1.5 text-xs font-semibold text-muted">
+          Weekly goal: {rateLabel(rate)}
+        </p>
+        <input
+          type="range"
+          min={-1}
+          max={0.5}
+          step={0.05}
+          value={rate}
+          onChange={(e) => setRate(Number(e.target.value))}
+          className="w-full accent-[var(--color-accent)]"
+        />
+        <div className="mt-1 flex justify-between text-[10px] text-muted">
+          <span>−1.0 (fast cut)</span>
+          <span>0 (maintain)</span>
+          <span>+0.5 (bulk)</span>
+        </div>
+      </div>
+
+      {targets && (
+        <div className="card-2 p-4">
+          <div className="grid grid-cols-4 gap-2 text-center">
+            <Preview label="Cals" value={targets.calories} />
+            <Preview label="Protein" value={`${targets.protein_g}g`} />
+            <Preview label="Carbs" value={`${targets.carbs_g}g`} />
+            <Preview label="Fat" value={`${targets.fat_g}g`} />
+          </div>
+        </div>
+      )}
+
+      <Button
+        block
+        onClick={() => {
+          if (!targets) return;
+          localStorage.setItem(RATE_KEY, String(rate));
+          onSave({
+            goal_type: targets.goal_type,
+            calories: targets.calories,
+            protein_g: targets.protein_g,
+            carbs_g: targets.carbs_g,
+            fat_g: targets.fat_g,
+          });
+        }}
+      >
+        Save adaptive targets
+      </Button>
+    </div>
+  );
+}
 
 function Calculator({
   unit,

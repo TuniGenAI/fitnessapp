@@ -3,7 +3,7 @@
  */
 import { getUserId } from "@/lib/session";
 import { selectRows, insertRow, deleteWhere } from "@/lib/repo";
-import type { BodyMetric } from "@/types";
+import type { BodyMetric, ProgressPhoto } from "@/types";
 
 function requireUid(): string {
   const uid = getUserId();
@@ -21,6 +21,11 @@ export async function addMetric(input: {
   body_fat_pct?: number | null;
   muscle_pct?: number | null;
   water_pct?: number | null;
+  waist_cm?: number | null;
+  chest_cm?: number | null;
+  arms_cm?: number | null;
+  thighs_cm?: number | null;
+  hips_cm?: number | null;
   note?: string | null;
   measured_at?: string;
 }): Promise<BodyMetric> {
@@ -31,8 +36,36 @@ export async function addMetric(input: {
     body_fat_pct: input.body_fat_pct ?? null,
     muscle_pct: input.muscle_pct ?? null,
     water_pct: input.water_pct ?? null,
+    waist_cm: input.waist_cm ?? null,
+    chest_cm: input.chest_cm ?? null,
+    arms_cm: input.arms_cm ?? null,
+    thighs_cm: input.thighs_cm ?? null,
+    hips_cm: input.hips_cm ?? null,
     note: input.note ?? null,
   });
+}
+
+// ---- Progress photos --------------------------------------------------------
+export async function listPhotos(): Promise<ProgressPhoto[]> {
+  const rows = await selectRows<ProgressPhoto>("progress_photos", { user_id: requireUid() });
+  return rows.sort((a, b) => b.taken_at.localeCompare(a.taken_at));
+}
+
+export async function addPhoto(
+  dataUrl: string,
+  note?: string | null,
+  takenAt?: string,
+): Promise<ProgressPhoto> {
+  return insertRow<ProgressPhoto>("progress_photos", {
+    user_id: requireUid(),
+    data_url: dataUrl,
+    note: note ?? null,
+    taken_at: takenAt ?? new Date().toISOString(),
+  });
+}
+
+export async function deletePhoto(id: string): Promise<void> {
+  await deleteWhere("progress_photos", { id });
 }
 
 export async function deleteMetric(id: string): Promise<void> {

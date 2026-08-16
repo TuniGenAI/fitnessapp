@@ -25,7 +25,7 @@ import type {
   CoachMode,
   RecordType,
 } from "@/types";
-import { checkPrsForSet } from "./logic";
+import { checkPrsForSet, sessionBestE1RM } from "./logic";
 import { todayISO, isoAtLocalDate } from "@/lib/format";
 import type { ProgramTemplate } from "./templates";
 
@@ -340,6 +340,7 @@ export async function logSet(input: {
   exercise_id: string;
   weight_kg: number;
   reps: number;
+  rpe?: number | null;
   is_warmup?: boolean;
 }): Promise<{ set: WorkoutSet; celebrated: RecordType[] }> {
   const uid = requireUid();
@@ -354,6 +355,7 @@ export async function logSet(input: {
     set_number: setNumber,
     weight_kg: input.weight_kg,
     reps: input.reps,
+    rpe: input.rpe ?? null,
     is_warmup: input.is_warmup ?? false,
     is_pr: false,
     logged_at: new Date().toISOString(),
@@ -463,6 +465,23 @@ export async function getExerciseHistory(
       sets: ws.sort((a, b) => a.set_number - b.set_number),
     }))
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * Best estimated-1RM for the last `n` sessions of an exercise, newest-first,
+ * excluding the current session. Feeds `detectStall` (deload suggestion).
+ */
+export async function getRecentSessionBestE1RMs(
+  exerciseId: string,
+  excludeWorkoutId: string,
+  n = 3,
+): Promise<number[]> {
+  const hist = await getExerciseHistory(exerciseId); // oldest→newest
+  return hist
+    .filter((h) => h.workoutId !== excludeWorkoutId)
+    .slice(-n)
+    .reverse()
+    .map((h) => sessionBestE1RM(h.sets));
 }
 
 /** Total working-set volume per muscle group over the last `days` days. */

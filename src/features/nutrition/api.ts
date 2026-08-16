@@ -18,8 +18,15 @@ import type {
   MealItem,
   MealType,
   WaterLog,
+  BodyMetric,
 } from "@/types";
 import type { OffFood } from "./off";
+import {
+  estimateExpenditure,
+  type DayIntake,
+  type WeightPoint,
+  type ExpenditureEstimate,
+} from "./adaptiveTdee";
 
 function requireUid(): string {
   const uid = getUserId();
@@ -32,9 +39,11 @@ export interface Macros {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  /** Optional — fiber isn't always known (photo/text AI, sparse OFF entries). */
+  fiber_g?: number;
 }
 
-const ZERO: Macros = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 };
+const ZERO: Macros = { calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0, fiber_g: 0 };
 
 export function addMacros(a: Macros, b: Macros): Macros {
   return {
@@ -42,6 +51,7 @@ export function addMacros(a: Macros, b: Macros): Macros {
     protein_g: a.protein_g + b.protein_g,
     carbs_g: a.carbs_g + b.carbs_g,
     fat_g: a.fat_g + b.fat_g,
+    fiber_g: (a.fiber_g ?? 0) + (b.fiber_g ?? 0),
   };
 }
 
@@ -63,6 +73,7 @@ export async function createFood(input: {
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+  fiber_g?: number | null;
 }): Promise<Food> {
   return insertRow<Food>("foods", {
     user_id: requireUid(),
@@ -77,6 +88,7 @@ export async function createFood(input: {
     protein_g: input.protein_g,
     carbs_g: input.carbs_g,
     fat_g: input.fat_g,
+    fiber_g: input.fiber_g ?? null,
   });
 }
 
@@ -93,6 +105,7 @@ export async function saveOffFood(off: OffFood): Promise<Food> {
     protein_g: off.protein_g,
     carbs_g: off.carbs_g,
     fat_g: off.fat_g,
+    fiber_g: off.fiber_g,
   });
 }
 
@@ -120,6 +133,7 @@ export async function logFood(input: {
   log_date?: string;
 }): Promise<FoodLog> {
   const s = input.servings;
+  const fiber = input.perServing.fiber_g;
   return insertRow<FoodLog>("food_logs", {
     user_id: requireUid(),
     food_id: input.food_id ?? null,
@@ -131,6 +145,7 @@ export async function logFood(input: {
     protein_g: Math.round(input.perServing.protein_g * s * 10) / 10,
     carbs_g: Math.round(input.perServing.carbs_g * s * 10) / 10,
     fat_g: Math.round(input.perServing.fat_g * s * 10) / 10,
+    fiber_g: fiber != null ? Math.round(fiber * s * 10) / 10 : null,
   });
 }
 
@@ -145,6 +160,7 @@ export function sumFoodLogs(logs: FoodLog[]): Macros {
       protein_g: l.protein_g,
       carbs_g: l.carbs_g,
       fat_g: l.fat_g,
+      fiber_g: l.fiber_g ?? 0,
     }),
     ZERO,
   );
@@ -179,6 +195,89 @@ export async function getDailyHistory(
     calories: Math.round(cal.get(date) ?? 0),
     protein_g: Math.round(pro.get(date) ?? 0),
   }));
+}
+
+// ---- Recent foods (quick re-log) -------------------------------------------
+export interface RecentFood {
+  name: string;
+  perServing: Macros;
+  /** Servings used last time this food was logged. */
+  servings: number;
+  meal_type: MealType | null;
+  food_id: string | null;
+}
+
+/**
+ * Distinct foods logged most recently, newest first, each carrying the per-
+ * serving macros + last-used servings so it re-logs in one tap. This is the
+ * "recents" surface that makes daily logging fast (the log already stores
+ * denormalized totals, so no join is needed).
+ */
+export async function listRecentFoods(limit = 12): Promise<RecentFood[]> {
+  const rows = await selectRows<FoodLog>("food_logs", { user_id: requireUid() });
+  rows.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  const seen = new Set<string>();
+  const out: RecentFood[] = [];
+  for (const l of rows) {
+    const key = l.name.trim().toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    const s = l.servings > 0 ? l.servings : 1;
+    out.push({
+      name: l.name,
+      servings: l.servings,
+      meal_type: l.meal_type,
+      food_id: l.food_id,
+      perServing: {
+        calories: Math.round(l.calories / s),
+        protein_g: Math.round((l.protein_g / s) * 10) / 10,
+        carbs_g: Math.round((l.carbs_g / s) * 10) / 10,
+        fat_g: Math.round((l.fat_g / s) * 10) / 10,
+        fiber_g: l.fiber_g != null ? Math.round((l.fiber_g / s) * 10) / 10 : undefined,
+      },
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+// ---- Adaptive TDEE ----------------------------------------------------------
+/**
+ * Back-calculate the user's real maintenance calories from logged intake +
+ * weigh-ins (the MacroFactor-style adaptive estimate). Returns null when there
+ * isn't enough data yet, so callers fall back to the Mifflin formula.
+ * Pure math lives in `adaptiveTdee.ts`; this only gathers the two series.
+ */
+export async function getExpenditureEstimate(
+  windowDays = 21,
+): Promise<ExpenditureEstimate | null> {
+  const uid = requireUid();
+  const [foodRows, metricRows] = await Promise.all([
+    selectRows<FoodLog>("food_logs", { user_id: uid }),
+    selectRows<BodyMetric>("body_metrics", { user_id: uid }),
+  ]);
+
+  // Sum calories per calendar day.
+  const perDay = new Map<string, number>();
+  for (const r of foodRows) {
+    perDay.set(r.log_date, (perDay.get(r.log_date) ?? 0) + r.calories);
+  }
+  const intake: DayIntake[] = [...perDay.entries()].map(([date, calories]) => ({
+    date,
+    calories,
+  }));
+
+  // One weigh-in per day (the last recorded that day wins); date is local.
+  const perDayWeight = new Map<string, number>();
+  for (const m of metricRows) {
+    if (m.weight_kg == null) continue;
+    perDayWeight.set(todayISO(new Date(m.measured_at)), m.weight_kg);
+  }
+  const weights: WeightPoint[] = [...perDayWeight.entries()]
+    .map(([date, weightKg]) => ({ date, weightKg }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  return estimateExpenditure(intake, weights, { windowDays });
 }
 
 // ---- Saved meals ------------------------------------------------------------
