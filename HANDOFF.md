@@ -8,6 +8,15 @@
 
 ## Where we are
 
+> **✅ ALL DEPLOYED (2026-08-16).** The full audit roadmap (v0.9.0–v0.12.0) is **live**. Frontend pushed to
+> `main` (`6745a4a`) → Vercel; the three migrations (`workout_sets.rpe`, `food_logs.fiber_g`, `body_metrics`
+> tape cols, `progress_photos`) are applied and REST-verified (all `200`); `coach` edge fn redeployed to **v4**
+> (sends session `history`), `nutrition-coach` already ACTIVE. Nothing pending. The ⚠️ "MIGRATION TO APPLY"
+> callouts in the per-version notes below are **historical** — those migrations are now applied.
+> *Ops gotcha for next time:* the CLI's remote migration-history table is empty (earlier migrations were pasted
+> into the SQL Editor), so `supabase db push` alone re-runs everything and fails on `0002`'s `create policy` —
+> `migration repair --status applied <old versions>` first, or keep using the SQL Editor.
+
 > **🏁 Tier 2 + Tier 3 complete (2026-08-16, app v0.12.0).** ROADMAP items #8–#14 — the whole audit backlog
 > is now shipped (v0.9.0 → v0.12.0). **⚠️ Includes a DB migration to apply + an edge-function redeploy.**
 > - **#8 Stall→deload:** `detectStall` + `deloadTarget` in `workouts/logic.ts`; `getRecentSessionBestE1RMs`
