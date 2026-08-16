@@ -2,13 +2,13 @@
 
 > Read this first (after `CLAUDE.md` / `PRD.md` / `TASKS.md`) for full context. Last updated: **2026-08-16**.
 >
-> **TL;DR:** Phase-1 is **complete and live** — all features (M0–M7) built, deployed to Vercel, backend on Supabase, AI functions deployed, Gemini key set. `npm run build` green. Post-Phase-1 work now follows [`ROADMAP.md`](./ROADMAP.md) (from the competitive audit vs MacroFactor / MFP / Strong). Only Milestone 8 (owner's iPhone-PWA end-to-end pass) and one parked item (offline logging) remain from Phase 1. See the Runbook near the bottom for ops.
+> **TL;DR:** Phase-1 **and** the entire post-audit [`ROADMAP.md`](./ROADMAP.md) (14 items, vs MacroFactor / MFP / Strong) are **complete, deployed, and verified** — app at **v0.12.0**, live on Vercel, all migrations applied, edge functions current (`coach` v4). `npm run build` green. **This session is closed with no open work items.** Parked long-term: offline logging. A future round of improvements would open a new section in ROADMAP.md or a fresh doc. See the Runbook near the bottom for ops.
 
 ---
 
 ## Where we are
 
-> **✅ ALL DEPLOYED (2026-08-16).** The full audit roadmap (v0.9.0–v0.12.0) is **live**. Frontend pushed to
+> **✅ ALL DEPLOYED — SESSION CLOSED (2026-08-16).** The full audit roadmap (v0.9.0–v0.12.0) is **live**. Frontend pushed to
 > `main` (`6745a4a`) → Vercel; the three migrations (`workout_sets.rpe`, `food_logs.fiber_g`, `body_metrics`
 > tape cols, `progress_photos`) are applied and REST-verified (all `200`); `coach` edge fn redeployed to **v4**
 > (sends session `history`), `nutrition-coach` already ACTIVE. Nothing pending. The ⚠️ "MIGRATION TO APPLY"

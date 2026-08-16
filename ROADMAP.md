@@ -1,11 +1,14 @@
 # ROADMAP — post-Phase-1 improvements
 
+> ## ✅ CLOSED — all 14 items shipped & deployed (2026-08-16, v0.9.0 → v0.12.0)
+> This roadmap is **complete and live**. The competitive-audit backlog was built, verified, and deployed
+> in one session: frontend on `main` → Vercel, all migrations applied (REST-verified), `coach` edge fn at
+> v4. Nothing outstanding. Kept as the record of the audit + what shipped; a **future** improvement backlog
+> would start a new "Round 2" section below or a fresh doc.
+>
 > Born from the competitive audit (2026-08-16) benchmarking the app against **MacroFactor**
 > (adaptive nutrition), **MyFitnessPal** (logging breadth), and **Strong/Hevy** (training).
 > Companion docs: [`PRD.md`](./PRD.md) (what/why) · [`CLAUDE.md`](./CLAUDE.md) (how) · [`HANDOFF.md`](./HANDOFF.md) (state).
->
-> This file tracks **what we're building next and why**, in priority order. Update it in the
-> same change when an item ships (tick it, add the app version + a line in HANDOFF.md).
 
 ## Where the app stands (audit summary)
 
