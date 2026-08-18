@@ -83,9 +83,12 @@ body {
   font-weight: 400;
   -webkit-font-smoothing: antialiased;
   background-color: var(--color-ink);
-  /* Respect iPhone safe areas (notch / home indicator) for the installed PWA */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right)
-    env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* Respect iPhone safe areas (notch / sides). The BOTTOM inset is intentionally
+     0 here — the bottom nav owns the home-indicator inset via its own
+     padding-bottom. Applying it on both body and nav double-counted it, leaving
+     a strip of bare background below the nav (the "gap" under the toolbar). */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0
+    env(safe-area-inset-left);
 }
 
 :root.light body {

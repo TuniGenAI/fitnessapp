@@ -26,7 +26,7 @@ import {
   logSet,
   deleteSet,
   completeWorkout,
-  listWorkouts,
+  trainedDaysThisWeek,
 } from "./api";
 import { todayISO } from "@/lib/format";
 import {
@@ -80,6 +80,9 @@ export function WorkoutLogger({
   const [confirmEmpty, setConfirmEmpty] = useState(false);
   // Rest timer: {startedAt, seconds} while a rest is running, else null.
   const [rest, setRest] = useState<{ startedAt: number; seconds: number } | null>(null);
+  // Which exercise is mid-log (locks the button so a double-tap can't create
+  // duplicate sets while the insert is in flight).
+  const [loggingId, setLoggingId] = useState<string | null>(null);
 
   function flashToast(msg: string) {
     setToast(msg);
@@ -160,36 +163,52 @@ export function WorkoutLogger({
     warmup: boolean,
     rpe: number | null,
   ) {
-    const { celebrated } = await logSet({
-      workout_id: workout.id,
-      exercise_id: entry.exercise.id,
-      weight_kg: weightKg,
-      reps,
-      rpe,
-      is_warmup: warmup,
-    });
-    // Kick off the rest countdown after a real working set (opt-out in Settings).
-    if (!warmup && restTimerOn()) {
-      setRest({ startedAt: Date.now(), seconds: restSeconds() });
-    }
-    if (celebrated.length > 0) {
-      celebrate();
-      flashToast(celebrated.map((c: RecordType) => `🏆 ${prTypeLabel(c)} PR!`).join("  "));
-    } else if (coachEnabled && reactionsMode && !warmup) {
-      const prev = bestSet(entry.last);
-      const beatLastTime = prev
-        ? estimatedOneRepMax(weightKg, reps) > estimatedOneRepMax(prev.weight_kg, prev.reps)
-        : false;
-      flashToast(
-        reactionForSet({
-          isPr: false,
-          beatLastTime,
-          reps,
-          targetHigh: entry.target?.target_reps_high,
-        }),
+    if (loggingId) return; // a log is already in flight — ignore the extra tap
+    setLoggingId(entry.exercise.id);
+    try {
+      const { set, celebrated } = await logSet({
+        workout_id: workout.id,
+        exercise_id: entry.exercise.id,
+        weight_kg: weightKg,
+        reps,
+        rpe,
+        is_warmup: warmup,
+      });
+      // Optimistic: splice the real returned row straight into this entry. The
+      // old code re-ran the full `load()` (which re-scans all workout history
+      // TWICE per exercise) after every set — seconds of lag on a phone, during
+      // which the set looked unsaved and users re-tapped into duplicates.
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.exercise.id === entry.exercise.id ? { ...e, sets: [...e.sets, set] } : e,
+        ),
       );
+      // Kick off the rest countdown after a real working set (opt-out in Settings).
+      if (!warmup && restTimerOn()) {
+        setRest({ startedAt: Date.now(), seconds: restSeconds() });
+      }
+      if (celebrated.length > 0) {
+        celebrate();
+        flashToast(celebrated.map((c: RecordType) => `🏆 ${prTypeLabel(c)} PR!`).join("  "));
+      } else if (coachEnabled && reactionsMode && !warmup) {
+        const lastBest = bestSet(entry.last);
+        const beatLastTime = lastBest
+          ? estimatedOneRepMax(weightKg, reps) > estimatedOneRepMax(lastBest.weight_kg, lastBest.reps)
+          : false;
+        flashToast(
+          reactionForSet({
+            isPr: false,
+            beatLastTime,
+            reps,
+            targetHigh: entry.target?.target_reps_high,
+          }),
+        );
+      }
+    } catch {
+      flashToast("Couldn't log that set — check your connection and try again.");
+    } finally {
+      setLoggingId(null);
     }
-    await load();
   }
 
   /** Finish tap: warn first if no working sets were logged, else recap. */
@@ -218,18 +237,14 @@ export function WorkoutLogger({
         top = { name: e.exercise.name, best: `${formatWeight(b.weight_kg, unit)} × ${b.reps}` };
       }
     }
-    // Sessions completed this week (incl. this one) — cross-session continuity.
+    // Sessions this week (incl. this one) — cross-session continuity. Uses the
+    // same calendar-week + has-working-sets definition as the dashboard; this
+    // session isn't marked complete yet, so add its day explicitly.
     let trainedThisWeek = 1;
     try {
-      const weekAgo = todayISO(new Date(Date.now() - 6 * 86400000));
-      const done = await listWorkouts(100);
-      const days = new Set(
-        done
-          .filter((x) => x.completed_at && todayISO(new Date(x.started_at)) >= weekAgo)
-          .map((x) => todayISO(new Date(x.started_at))),
-      );
-      days.add(todayISO(new Date(workout.started_at)));
-      trainedThisWeek = days.size;
+      const days = await trainedDaysThisWeek();
+      if (working.length > 0) days.add(todayISO(new Date(workout.started_at)));
+      trainedThisWeek = Math.max(1, days.size);
     } catch {
       /* non-fatal — fall back to just this session */
     }
@@ -269,10 +284,19 @@ export function WorkoutLogger({
               key={e.exercise.id}
               entry={e}
               unit={unit}
+              pending={loggingId === e.exercise.id}
               onLog={(w, r, warm, rpe) => onLog(e, w, r, warm, rpe)}
               onDeleteSet={async (id) => {
-                await deleteSet(id);
-                await load();
+                // Optimistic remove — drop it from state immediately, reconcile
+                // from the backend only if the delete actually fails.
+                setEntries((prev) =>
+                  prev.map((en) => ({ ...en, sets: en.sets.filter((s) => s.id !== id) })),
+                );
+                try {
+                  await deleteSet(id);
+                } catch {
+                  await load();
+                }
               }}
             />
           ))}
@@ -375,8 +399,10 @@ export function WorkoutLogger({
 
 /**
  * Floating rest countdown, shown after a working set. Auto-fires a haptic/beep
- * cue at zero, then can be adjusted (±15s), skipped, or dismissed. Fixed above
- * the bottom nav so it stays visible while the set list scrolls.
+ * cue at zero, then can be adjusted (±15s), skipped, or dismissed. Rendered
+ * `sticky` inside the scrolling page rather than `fixed`: the bottom nav is an
+ * in-flow element (not fixed, per the iOS Safari fix), so a fixed overlay would
+ * land on top of it. Sticky keeps the bar pinned just above the nav instead.
  */
 function RestTimer({
   startedAt,
@@ -413,8 +439,8 @@ function RestTimer({
   const pct = Math.min(100, Math.max(0, (remaining / seconds) * 100));
 
   return (
-    <div className="fixed inset-x-0 bottom-20 z-40 px-4">
-      <div className="mx-auto max-w-md rounded-2xl p-3 shadow-lg card-2">
+    <div className="sticky bottom-3 z-40 mt-2">
+      <div className="rounded-2xl p-3 shadow-lg card-2">
         <div className="flex items-center gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between">
@@ -518,11 +544,13 @@ function SessionHeader({
 function ExerciseLogCard({
   entry,
   unit,
+  pending,
   onLog,
   onDeleteSet,
 }: {
   entry: Entry;
   unit: "kg" | "lb";
+  pending: boolean;
   onLog: (weightKg: number, reps: number, warmup: boolean, rpe: number | null) => void;
   onDeleteSet: (id: string) => void;
 }) {
@@ -681,13 +709,13 @@ function ExerciseLogCard({
         <Button
           block
           variant="accent"
+          disabled={pending}
           onClick={() => {
             onLog(fromDisplayWeight(weight, unit), reps, warmup, warmup ? null : rpe);
             setRpe(null);
           }}
         >
-          <CheckIcon className="h-4 w-4" /> Log set {trim(weight)}
-          {unit} × {reps}
+          <CheckIcon className="h-4 w-4" /> {pending ? "Logging…" : `Log set ${trim(weight)}${unit} × ${reps}`}
         </Button>
       </div>
     </div>

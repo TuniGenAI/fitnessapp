@@ -14,6 +14,7 @@ import {
   formatClock,
 } from "@/features/workouts/restTimer";
 import { exportAllData, downloadJson } from "@/lib/exportData";
+import { testCoachAI } from "@/features/coach/api";
 
 export function SettingsPage() {
   const { displayName, user, demo, configured, signOut } = useAuth();
@@ -31,6 +32,9 @@ export function SettingsPage() {
 
   const [exporting, setExporting] = useState(false);
   const [exportErr, setExportErr] = useState<string | null>(null);
+
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ ok: boolean; detail: string } | null>(null);
 
   return (
     <div className="space-y-5">
@@ -240,6 +244,39 @@ export function SettingsPage() {
               Couldn’t save: {keyError}
             </p>
           )}
+
+          {/* Diagnostic: fire one real coach call and show exactly what happens.
+              Turns the silent "(rule-based)" fallback into a readable reason. */}
+          <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--color-line)" }}>
+            <Button
+              block
+              variant="subtle"
+              disabled={testing}
+              onClick={async () => {
+                setTesting(true);
+                setTestResult(null);
+                try {
+                  setTestResult(await testCoachAI());
+                } finally {
+                  setTesting(false);
+                }
+              }}
+            >
+              {testing ? "Testing…" : "Test coach AI"}
+            </Button>
+            {testResult && (
+              <div
+                className="mt-2 rounded-xl px-3 py-2.5 text-xs leading-relaxed"
+                style={{
+                  background: "var(--color-surface-2)",
+                  color: testResult.ok ? "var(--color-accent)" : "var(--color-protein)",
+                }}
+              >
+                <span className="font-bold">{testResult.ok ? "✓ AI replied: " : "✕ AI didn’t fire: "}</span>
+                {testResult.detail}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -285,7 +322,7 @@ export function SettingsPage() {
         </ul>
       </section>
 
-      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.13.0 · FitBody design</p>
+      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.14.0 · FitBody design</p>
     </div>
   );
 }

@@ -284,6 +284,67 @@ export async function getActiveWorkout(): Promise<Workout | null> {
   return rows.find((w) => !w.completed_at) ?? null;
 }
 
+/** Local midnight of Monday for the calendar week containing `now`. */
+function startOfWeek(now = new Date()): Date {
+  const d = new Date(now);
+  const mondayOffset = (d.getDay() + 6) % 7; // 0 = Monday
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - mondayOffset);
+  return d;
+}
+
+/**
+ * Distinct local calendar days in the CURRENT week (Mon–Sun) on which a workout
+ * was both completed AND has at least one working set. Two deliberate fixes over
+ * the old "rolling 7 days, any completed row" count: (a) a real week boundary so
+ * last week's sessions don't leak in, and (b) empty/abandoned sessions (finished
+ * with zero working sets) don't inflate the total. Feeds the dashboard's
+ * "Trained" stat, the streak badge, and the recap's cross-session line.
+ */
+export async function trainedDaysThisWeek(): Promise<Set<string>> {
+  const uid = requireUid();
+  const [workouts, sets] = await Promise.all([
+    listWorkouts(100),
+    selectRows<WorkoutSet>("workout_sets", { user_id: uid }),
+  ]);
+  const workoutsWithWork = new Set<string>();
+  for (const s of sets) if (!s.is_warmup) workoutsWithWork.add(s.workout_id);
+
+  const monday = startOfWeek();
+  const days = new Set<string>();
+  for (const w of workouts) {
+    if (!w.completed_at) continue;
+    if (!workoutsWithWork.has(w.id)) continue;
+    const started = new Date(w.started_at);
+    if (started >= monday) days.add(todayISO(started));
+  }
+  return days;
+}
+
+/**
+ * The program day to suggest next (ROADMAP: day rotation). Advances to the day
+ * AFTER the most recently completed session's day, wrapping around the program
+ * order — so finishing Push suggests Pull, Pull suggests Legs, and so on. Falls
+ * back to the first day when nothing has been completed yet or history is
+ * unmatched. Pure ordering over `day_order`; no schedule/calendar assumptions.
+ */
+export async function getNextProgramDay(programId: string): Promise<ProgramDay | null> {
+  const days = await listDays(programId); // ordered by day_order asc
+  if (days.length === 0) return null;
+  if (days.length === 1) return days[0];
+
+  const dayIds = new Set(days.map((d) => d.id));
+  const workouts = await listWorkouts(100); // newest-first
+  const lastDone = workouts.find(
+    (w) => w.completed_at && w.program_day_id && dayIds.has(w.program_day_id),
+  );
+  if (!lastDone?.program_day_id) return days[0];
+
+  const idx = days.findIndex((d) => d.id === lastDone.program_day_id);
+  if (idx === -1) return days[0];
+  return days[(idx + 1) % days.length];
+}
+
 export async function getWorkout(id: string): Promise<Workout | null> {
   const rows = await selectRows<Workout>("workouts", { id });
   return rows[0] ?? null;

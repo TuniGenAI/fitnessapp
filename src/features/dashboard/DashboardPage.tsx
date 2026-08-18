@@ -11,10 +11,10 @@ import { todayISO, relativeDay } from "@/lib/format";
 import {
   getActiveWorkout,
   getActiveProgram,
-  listDays,
+  getNextProgramDay,
   listProgramExercises,
   listExercises,
-  listWorkouts,
+  trainedDaysThisWeek,
 } from "@/features/workouts/api";
 import {
   getFoodTotals,
@@ -70,29 +70,22 @@ export function DashboardPage() {
     try {
       // allSettled so one failing query (e.g. a not-yet-cached table) can't
       // blank the whole dashboard — each tile degrades independently.
-      const [food, supp, w, act, program, workouts] = await Promise.allSettled([
+      const [food, supp, w, act, program, trained] = await Promise.allSettled([
         withTimeout(getFoodTotals()),
         withTimeout(getSupplementMacros()),
         withTimeout(getWaterMl()),
         withTimeout(getActiveWorkout()),
         withTimeout(getActiveProgram()),
-        withTimeout(listWorkouts(50)),
+        withTimeout(trainedDaysThisWeek()),
       ]);
       if (food.status === "fulfilled") setFoodTotals(food.value);
       if (supp.status === "fulfilled") setSuppTotals(supp.value);
       if (w.status === "fulfilled") setWater(w.value);
       if (act.status === "fulfilled") setActive(act.value);
 
-      // Trained this week (distinct local days with a completed workout, last 7d).
-      if (workouts.status === "fulfilled") {
-        const weekAgo = todayISO(new Date(Date.now() - 6 * 86400000));
-        const days = new Set(
-          workouts.value
-            .filter((x) => x.completed_at && todayISO(new Date(x.started_at)) >= weekAgo)
-            .map((x) => todayISO(new Date(x.started_at))),
-        );
-        setTrainedThisWeek(days.size);
-      }
+      // Trained this week: distinct days in the current calendar week with a
+      // completed session that actually has working sets (see api helper).
+      if (trained.status === "fulfilled") setTrainedThisWeek(trained.value.size);
 
       // Paint now — the rings/water/weekly all have their data. Don't make the
       // spinner wait on the extra query waves the session tile needs below.
@@ -104,8 +97,8 @@ export function DashboardPage() {
         let sess: TodaySession | null = null;
         const activeProgram = program.status === "fulfilled" ? program.value : null;
         if (activeProgram) {
-          const ds = await withTimeout(listDays(activeProgram.id));
-          const day = ds[0] ?? null;
+          // Rotate to the day AFTER the last completed session, not always day 1.
+          const day = await withTimeout(getNextProgramDay(activeProgram.id));
           if (day) {
             const [pex, lib] = await Promise.all([
               withTimeout(listProgramExercises(day.id)),

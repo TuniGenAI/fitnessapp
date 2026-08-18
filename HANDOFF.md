@@ -8,6 +8,16 @@
 
 ## Where we are
 
+> **🛠️ Second-workout feedback fixes (2026-08-18) — app v0.14.0.** From the owner's second on-device session:
+> 1. **Day rotation (was: dashboard always showed program day 1).** New [`getNextProgramDay`](./src/features/workouts/api.ts) advances to the day *after* the most recently completed session (wraps around `day_order`); the Dashboard "Today's session" hero now uses it instead of `days[0]`. Finishing Push → suggests Pull, etc.
+> 2. **"Trained this week" was overcounting.** New [`trainedDaysThisWeek`](./src/features/workouts/api.ts) counts distinct days in the **current calendar week (Mon–Sun)** that have a completed session **with ≥1 working set** — fixes both the rolling-7-day leak and empty/abandoned sessions inflating the count. Drives the Dashboard stat, the streak flame, and the recap's cross-session line.
+> 3. **Per-set "reactions" are rule-based only, by design — they never called AI** (contrary to an earlier CLAUDE.md claim). Left as-is pending an owner decision (see below); the generic filler is [`reactionForSet`](./src/features/coach/logic.ts).
+> 4. **AI recap silently fell back to rule-based.** Owner's Gemini dashboard showed **zero usage**, so the call wasn't reaching Gemini (not quota). Root issue: [`tryGemini`](./src/features/coach/api.ts) discarded `data.error` from the `coach` function, so every failure looked identical. Now it logs the reason, and a new **"Test coach AI"** button in Settings (`testCoachAI`) fires one call and shows the exact result (no key / quota / deploy error / ✓ reply). **Use it to diagnose #4 on the owner's device.**
+> 5. **Rest timer covered the bottom nav + a gap sat under the nav.** The nav is in-flow (not fixed); the rest timer was `fixed bottom-20` and landed on it → now `sticky` inside the scroll area, always above the nav ([`WorkoutLogger`](./src/features/workouts/WorkoutLogger.tsx)). The gap was `env(safe-area-inset-bottom)` applied on **both** `body` and the nav — removed from `body` in [`index.css`](./src/index.css) so the nav owns it. (Safe-area behavior only shows on the iPhone, not desktop preview.)
+> 6. **Sets sometimes "didn't log" / double-tapping made duplicates.** `onLog` did a full `load()` after every set (re-scanning all history twice per exercise = seconds of lag). Now: optimistic insert of the returned row, the Log-set button locks while a log is in flight (`loggingId`), and deletes are optimistic too. Kills both the perceived-no-save lag and the duplicate sets.
+>
+> **Open decision (deferred by owner):** per-set feedback strategy (#3) — AI on notable sets only / full AI every set / smart rules only — to be picked *after* the Test-coach-AI button reveals why AI wasn't firing. `npm run build` green, `tsc` clean. Not yet committed/deployed.
+
 > **⚡ Load/render performance pass (2026-08-18) — app v0.13.0.**
 > Targeted cold-start, navigation, and first-paint. Behavior unchanged except the Dashboard now
 > skeletons instead of one long spinner.

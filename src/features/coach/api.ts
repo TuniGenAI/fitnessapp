@@ -26,10 +26,63 @@ async function tryGemini(kind: "briefing" | "recap", body: unknown): Promise<str
     const { data, error } = await supabase.functions.invoke<CoachResponse>("coach", {
       body: { kind, ...(body as object) },
     });
-    if (error || !data || data.fallback || !data.text) return null;
+    // Don't silently swallow the reason — the coach function already tells us
+    // WHY it fell back (no key, quota/429, deploy error). Surface it to the
+    // console so a real workout leaves a trace, then degrade as before.
+    if (error) {
+      console.warn(`[coach] ${kind} invoke failed:`, error.message ?? error);
+      return null;
+    }
+    if (!data) return null;
+    if (data.error) console.warn(`[coach] ${kind} fell back:`, data.error);
+    else if (data.fallback) console.warn(`[coach] ${kind} fell back: no Gemini key reached the server`);
+    if (data.fallback || !data.text) return null;
     return data.text;
-  } catch {
+  } catch (e) {
+    console.warn(`[coach] ${kind} threw:`, e);
     return null;
+  }
+}
+
+export interface CoachAiTest {
+  ok: boolean;
+  /** Human-readable result: the AI's reply on success, or the exact failure reason. */
+  detail: string;
+}
+
+/**
+ * Fire one real `coach` call and report exactly what happened — powers the
+ * Settings "Test coach AI" button so the owner can see WHY the AI does or
+ * doesn't fire without running a whole workout. Distinguishes the failure modes
+ * that all otherwise collapse into a silent "(rule-based)".
+ */
+export async function testCoachAI(): Promise<CoachAiTest> {
+  if (!usingBackend() || !supabase) {
+    return {
+      ok: false,
+      detail: "You're in demo mode (not signed in to the backend) — the AI coach only runs for a signed-in account.",
+    };
+  }
+  try {
+    const { data, error } = await supabase.functions.invoke<CoachResponse>("coach", {
+      body: {
+        kind: "recap",
+        dayName: "Test",
+        summary: "Summary: 3 working sets, 300 kg total volume, 0 PRs.",
+      },
+    });
+    if (error) return { ok: false, detail: `Edge function error: ${error.message ?? String(error)}` };
+    if (!data) return { ok: false, detail: "No response from the coach function (is it deployed?)." };
+    if (data.text) return { ok: true, detail: data.text };
+    if (data.error) return { ok: false, detail: data.error };
+    if (data.fallback)
+      return {
+        ok: false,
+        detail: "Function ran but found no Gemini key on the server — your saved key isn't reaching the profiles row.",
+      };
+    return { ok: false, detail: "Empty response from the coach function." };
+  } catch (e) {
+    return { ok: false, detail: `Call threw: ${String(e)}` };
   }
 }
 
