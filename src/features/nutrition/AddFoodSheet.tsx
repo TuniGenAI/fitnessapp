@@ -402,12 +402,36 @@ function BarcodeTab({ onPick }: { onPick: (s: Selectable) => void }) {
     setCamError(null);
     setScanning(true);
     try {
-      // Load the ~450 kB scanner lib only when the camera is actually used.
-      const { BrowserMultiFormatReader } = await import("@zxing/browser");
-      const reader = new BrowserMultiFormatReader();
+      // Load the scanner libs only when the camera is actually used.
+      const [{ BrowserMultiFormatReader }, { BarcodeFormat, DecodeHintType }] =
+        await Promise.all([import("@zxing/browser"), import("@zxing/library")]);
+
+      // Restrict decoding to the retail 1D formats printed on food packaging
+      // (EAN-13/8, UPC-A/E). Without this the reader tries *every* format —
+      // including QR and other 2D codes — which makes it slow to lock onto a
+      // product barcode and often never decodes it at all. TRY_HARDER trades a
+      // little CPU for a much more reliable read off a shaky phone camera.
+      const hints = new Map<number, unknown>();
+      hints.set(DecodeHintType.POSSIBLE_FORMATS, [
+        BarcodeFormat.EAN_13,
+        BarcodeFormat.EAN_8,
+        BarcodeFormat.UPC_A,
+        BarcodeFormat.UPC_E,
+      ]);
+      hints.set(DecodeHintType.TRY_HARDER, true);
+
+      const reader = new BrowserMultiFormatReader(hints, {
+        delayBetweenScanAttempts: 100,
+      });
+
+      // The <video> mounts on the same render that set `scanning` true; wait a
+      // tick so the ref is populated before we hand it to the reader.
+      if (!videoRef.current) await new Promise((r) => setTimeout(r, 0));
+      if (!videoRef.current) throw new Error("video element not ready");
+
       controlsRef.current = await reader.decodeFromVideoDevice(
         undefined,
-        videoRef.current!,
+        videoRef.current,
         (result, _err, controls) => {
           if (result) {
             controls.stop();
@@ -421,7 +445,7 @@ function BarcodeTab({ onPick }: { onPick: (s: Selectable) => void }) {
       );
     } catch (e) {
       setCamError(
-        "Couldn't start the camera. Grant camera permission, or type the number below.",
+        "Couldn't start the camera. Grant camera permission (and open the app over HTTPS), or type the number below.",
       );
       setScanning(false);
       void e;

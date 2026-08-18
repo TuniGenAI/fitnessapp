@@ -118,10 +118,18 @@ Deno.serve(async (request: Request) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
-          // `gemini-flash-latest` is a thinking model whose reasoning draws from
-          // maxOutputTokens — a 160 cap left nothing for the briefing text. The
-          // prompt still keeps the prose short; this just leaves room to think.
-          generationConfig: { temperature: 0.8, maxOutputTokens: 2048 },
+          // `gemini-flash-latest` resolves to a "thinking" model. Left unbounded,
+          // its internal reasoning both (a) takes many seconds — long enough that
+          // the call feels dead / can time out — and (b) is drawn from
+          // maxOutputTokens, so it routinely ate the whole 2048 budget and
+          // returned EMPTY text (surfaced as the rule-based fallback / "AI didn't
+          // work"). Disabling thinking makes the coach fast and reliable; the
+          // prompt already keeps the prose short so no reasoning headroom is lost.
+          generationConfig: {
+            temperature: 0.8,
+            maxOutputTokens: 512,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
         }),
       },
     );

@@ -133,10 +133,17 @@ Deno.serve(async (request: Request) => {
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: buildSystem(body.context) }] },
           contents,
-          // gemini-flash-latest is a "thinking" model whose reasoning draws from
-          // maxOutputTokens — keep headroom so the prose answer isn't starved
-          // (see HANDOFF 2026-08-13). Prose out, so no responseMimeType.
-          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+          // gemini-flash-latest is a "thinking" model. Unbounded, its reasoning
+          // is slow (the tap feels dead / can time out) AND is drawn from
+          // maxOutputTokens, so it routinely ate the whole budget and returned
+          // empty text → the rule-based fallback. Disable thinking for a fast,
+          // reliable plan; 768 tokens is ample for the ~4–6 sentence answer.
+          // Prose out, so no responseMimeType.
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 768,
+            thinkingConfig: { thinkingBudget: 0 },
+          },
         }),
       },
     );

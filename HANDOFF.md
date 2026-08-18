@@ -8,6 +8,30 @@
 
 ## Where we are
 
+> **🔧 Barcode + AI reliability fixes (2026-08-18, app v0.12.1).** Owner reported: barcode camera
+> "doesn't scan", and most AI features "don't work / die on load / take too long." Two root causes,
+> both fixed in code:
+> 1. **AI thinking-model starvation (the big one).** All four edge functions (`coach`, `food-text`,
+>    `food-photo`, `nutrition-coach`) call `gemini-flash-latest`, which is a **thinking** model, with
+>    **no thinking budget**. Unbounded thinking (a) is slow — many seconds, long enough to feel dead /
+>    hit limits ("takes too long / dies") and (b) is drawn from `maxOutputTokens`, so it routinely ate
+>    the whole 2048-token budget and returned **empty text** → the app silently fell back / errored
+>    ("AI doesn't work properly"). **Fix: `generationConfig.thinkingConfig = { thinkingBudget: 0 }`**
+>    on all four (and dropped `maxOutputTokens` back to 512–768 since no reasoning headroom is needed).
+>    This is exactly the perf fix flagged in the 2026-08-13 note below. **⚠️ REDEPLOY all four edge
+>    functions** — code-only edits don't take effect until deployed:
+>    `supabase functions deploy coach food-text food-photo nutrition-coach`.
+> 2. **Barcode camera never decoded.** `src/features/nutrition/AddFoodSheet.tsx` used a bare
+>    `BrowserMultiFormatReader()` — it tries **every** format (QR/2D included), which locks onto a retail
+>    food barcode slowly and often not at all. **Fix:** restrict hints to retail 1D formats
+>    (`EAN_13/8`, `UPC_A/E`) + `TRY_HARDER`, add a small scan-attempt delay, and guard the `<video>` ref
+>    before handing it to the reader. Frontend-only → deploys on push to `main`. *(Manual barcode-number
+>    entry was already working — verified live: entering Nutella's `3017620422003` returned 539 kcal/100 g.)*
+>    Note the real device caveat: iOS grants `getUserMedia` only over **HTTPS** (Vercel is fine) and can be
+>    flaky in an installed home-screen PWA — manual entry remains the fallback.
+> - `npm run build` green; demo-mode browser pass (manual lookup works; camera path degrades gracefully
+>   with a clearer error). Version marker → **v0.12.1**.
+
 > **✅ ALL DEPLOYED — SESSION CLOSED (2026-08-16).** The full audit roadmap (v0.9.0–v0.12.0) is **live**. Frontend pushed to
 > `main` (`6745a4a`) → Vercel; the three migrations (`workout_sets.rpe`, `food_logs.fiber_g`, `body_metrics`
 > tape cols, `progress_photos`) are applied and REST-verified (all `200`); `coach` edge fn redeployed to **v4**

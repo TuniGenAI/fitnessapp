@@ -71,14 +71,17 @@ Deno.serve(async (request: Request) => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: `${PROMPT}\n\nMeal: ${text.trim()}` }] }],
-          // `gemini-flash-latest` is a "thinking" model: internal reasoning draws
-          // from maxOutputTokens, so a tight 200 cap left nothing for the answer
-          // and the reply came back empty ("no json"). Give thinking + output room,
-          // and force JSON so we never depend on the model avoiding code fences.
+          // `gemini-flash-latest` is a "thinking" model. Left unbounded, its
+          // reasoning is slow (the call feels dead) AND is drawn from
+          // maxOutputTokens, so it routinely consumed the whole budget and
+          // returned empty text ("no json"). Disable thinking so the estimate is
+          // fast and the tokens go to the answer. Force JSON so we never depend on
+          // the model avoiding code fences.
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 512,
             responseMimeType: "application/json",
+            thinkingConfig: { thinkingBudget: 0 },
           },
         }),
       },

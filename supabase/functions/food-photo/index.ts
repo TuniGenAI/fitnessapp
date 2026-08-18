@@ -77,11 +77,15 @@ Deno.serve(async (request: Request) => {
               ],
             },
           ],
-          // See food-text: thinking models need output-token headroom + forced JSON.
+          // See food-text: `gemini-flash-latest` is a thinking model. Unbounded
+          // thinking is slow (feels dead) and eats maxOutputTokens, returning
+          // empty text ("no json"). Disable thinking + force JSON for a fast,
+          // reliable estimate.
           generationConfig: {
             temperature: 0.2,
-            maxOutputTokens: 2048,
+            maxOutputTokens: 512,
             responseMimeType: "application/json",
+            thinkingConfig: { thinkingBudget: 0 },
           },
         }),
       },
