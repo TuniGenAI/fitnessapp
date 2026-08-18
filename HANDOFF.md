@@ -8,6 +8,44 @@
 
 ## Where we are
 
+> **🎨 "FitBody" design-system restart (2026-08-18) — DEPLOYED (`1e32f38`, `3ed8bc3`).** The owner felt the
+> old **"Calm Athletic"** look was off (colors / typography / density) and asked to **fully match** the
+> *FitBody* Figma UI kit (community file, page "FitBody App"). This is a from-the-tokens restart, not a tweak.
+> **Exact tokens read from the Figma file** (dev-MCP couldn't read it — connector was a View-only different
+> account — so values were pulled by opening each color/text style in the browser):
+> - **Colors:** bg `#1E1E1E` · card `#232323` · **violet `#896CFE`** (primary: titles, play, nav, active) ·
+>   lavender `#B3A0FF` (section bands + nav fill) · **lime `#E2F163`** (accent: section headings, primary CTAs,
+>   badges — **always paired with black text**, `--color-on-accent`) · text `#FFFFFF`.
+> - **Type:** **League Spartan** only (one geometric display family — Bold headings, Light body). Was Inter +
+>   Space Grotesk. Loaded in [`index.html`](./index.html); theme-color → `#1e1e1e`.
+> - **Shape:** fully-rounded **pills** for buttons/chips/inputs; ~22px cards; **glass → flat solid** cards.
+>
+> **What changed (all token-driven, cascades widely):**
+> 1. **[`src/index.css`](./src/index.css) fully rewritten** — the `@theme` tokens above (kept the semantic
+>    names `--color-brand`/`-accent`/`-surface`/… and *remapped values*, so components didn't need touching),
+>    plus new `.card-paper` (white list-row card, always white in both themes), `.section-band` (full-bleed
+>    lavender), `--color-on-accent`, `--radius-pill`. Cards are now solid (no `backdrop-filter`).
+> 2. **Shared primitives** [`src/components/ui.tsx`](./src/components/ui.tsx): `Button` → pills
+>    (**primary = violet**, **accent = lime-on-black**, subtle = dark) **+ `whitespace-nowrap` so buttons never
+>    wrap to a 2nd line** (fix `3ed8bc3` — the barcode "Look up" button was wrapping); `Segmented` active →
+>    lime chip w/ black text; `PageHeader` title → violet. **Bottom nav** [`AppShell`](./src/components/AppShell.tsx)
+>    → solid violet bar, white icons, lime active.
+> 3. **Screens:** Dashboard (violet "Hi, {name}", lime section headings, lime hero CTA), Workouts (day cards →
+>    **white / image-on-right / lime star badge**), Nutrition, Login, WorkoutLogger (lime Finish + Log-set CTAs,
+>    pill RPE/warm-up). Section headings across Settings / Body / Supplements / Progress / charts → lime
+>    (one shared class-string swap). New icons `StarIcon` / `PlayIcon` / `ClockIcon`.
+> 4. **Confetti toned down** ([`src/lib/celebrate.ts`](./src/lib/celebrate.ts)) → one small soft lime/violet
+>    burst (was a triple-cannon blast), per owner request.
+> - **Not yet given a bespoke kit pass** (they *inherit* the new palette + pills so they're coherent, just not
+>   fully styled): the sheets (Add food, Goals, Plan day, Program builder, Exercise picker, Manage stack),
+>   `MacroRing`, `InstallPrompt`, `ComingSoon`.
+> - **⏳ OPEN POINT (owner, deferred):** **more imagery + "vivacity"** — the kit leans hard on photos and
+>   vibrant blocks; the app is comparatively sparse. A future pass adds more hero/section photography and
+>   energy (more `section-band`s, photo cards, gradient accents). Not started.
+> - Design intent + exact hexes/signatures also live in the owner memory note *design-system-fitbody*. Version
+>   marker in Settings → `Fitness App · v0.13.0 · FitBody design`. `npm run build` green; frontend-only (no
+>   migrations / edge-function changes).
+
 > **🛠️ Second-workout feedback fixes (2026-08-18) — app v0.14.0.** From the owner's second on-device session:
 > 1. **Day rotation (was: dashboard always showed program day 1).** New [`getNextProgramDay`](./src/features/workouts/api.ts) advances to the day *after* the most recently completed session (wraps around `day_order`); the Dashboard "Today's session" hero now uses it instead of `days[0]`. Finishing Push → suggests Pull, etc.
 > 2. **"Trained this week" was overcounting.** New [`trainedDaysThisWeek`](./src/features/workouts/api.ts) counts distinct days in the **current calendar week (Mon–Sun)** that have a completed session **with ≥1 working set** — fixes both the rolling-7-day leak and empty/abandoned sessions inflating the count. Drives the Dashboard stat, the streak flame, and the recap's cross-session line.
