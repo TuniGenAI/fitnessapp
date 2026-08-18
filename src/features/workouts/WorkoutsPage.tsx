@@ -1,6 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import type { Exercise, Program, ProgramDay, Workout } from "@/types";
 import { PageHeader, Button, Segmented, Spinner, EmptyState, DateNav } from "@/components/ui";
+import { Photo } from "@/components/Photo";
+import { heroImage } from "@/lib/images";
 import { DumbbellIcon, ListIcon, PlusIcon } from "@/components/icons";
 import { todayISO, friendlyDate } from "@/lib/format";
 import {
@@ -198,23 +200,29 @@ function PlanTab({
             Program: <span className="font-semibold text-[color:var(--color-brand-soft)]">{program.name}</span>
           </p>
           {days.map(({ day, exerciseNames }) => (
-            <div key={day.id} className="card p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="font-bold">{day.name}</h3>
+            <div key={day.id} className="card overflow-hidden">
+              <div className="flex items-stretch gap-4">
+                <Photo
+                  src={heroImage(day.name, 300)}
+                  alt=""
+                  scrim="bottom"
+                  className="w-24 shrink-0 self-stretch"
+                />
+                <div className="min-w-0 flex-1 py-4 pr-4">
+                  <h3 className="font-display font-bold">{day.name}</h3>
                   <p className="mt-0.5 truncate text-sm text-muted">
                     {exerciseNames.length ? exerciseNames.join(" · ") : "No exercises"}
                   </p>
+                  <Button
+                    block
+                    className="mt-3"
+                    disabled={starting || exerciseNames.length === 0}
+                    onClick={() => onStartDay(day)}
+                  >
+                    Start {day.name}
+                  </Button>
                 </div>
               </div>
-              <Button
-                block
-                className="mt-3"
-                disabled={starting || exerciseNames.length === 0}
-                onClick={() => onStartDay(day)}
-              >
-                Start {day.name}
-              </Button>
             </div>
           ))}
         </>

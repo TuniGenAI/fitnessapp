@@ -40,6 +40,12 @@ export default function MacroTrends({
       </p>
       <ResponsiveContainer width="100%" height={170}>
         <BarChart data={data} margin={{ top: 6, right: 6, bottom: 0, left: -18 }}>
+          <defs>
+            <linearGradient id="calGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="var(--color-brand)" />
+              <stop offset="100%" stopColor="var(--color-accent)" />
+            </linearGradient>
+          </defs>
           <CartesianGrid stroke="var(--color-line)" strokeDasharray="3 3" vertical={false} />
           <XAxis
             dataKey="label"
@@ -76,7 +82,7 @@ export default function MacroTrends({
                 fill={
                   target && d.calories > target * 1.05
                     ? "var(--color-protein)"
-                    : "var(--color-calories)"
+                    : "url(#calGrad)"
                 }
               />
             ))}

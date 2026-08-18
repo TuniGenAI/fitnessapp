@@ -2,6 +2,8 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react
 import type { Food, FoodLog, MealType } from "@/types";
 import { useProfile } from "@/features/profile/ProfileProvider";
 import { MacroRing } from "@/components/MacroRing";
+import { Photo } from "@/components/Photo";
+import { mealImage, foodImage } from "@/lib/images";
 import {
   PageHeader,
   Button,
@@ -204,7 +206,12 @@ export function NutritionPage() {
               </p>
             ) : (
               meals.map((m) => (
-                <div key={m.meal.id} className="card flex items-center gap-2 p-3">
+                <div key={m.meal.id} className="card flex items-center gap-3 p-3">
+                  <Photo
+                    src={foodImage(m.meal.name, 160)}
+                    alt=""
+                    className="h-12 w-12 shrink-0 rounded-xl"
+                  />
                   <button
                     className="min-w-0 flex-1 text-left"
                     onClick={async () => {
@@ -298,9 +305,16 @@ function FoodLogList({
         return (
           <section key={key} className="card p-4">
             <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-sm font-bold">
-                {key === "other" ? "Other" : MEAL_LABEL[key]}
-              </h3>
+              <div className="flex items-center gap-2.5">
+                <Photo
+                  src={mealImage(key, 120)}
+                  alt=""
+                  className="h-9 w-9 shrink-0 rounded-lg"
+                />
+                <h3 className="text-sm font-bold">
+                  {key === "other" ? "Other" : MEAL_LABEL[key]}
+                </h3>
+              </div>
               <span className="text-xs text-muted">{cals} kcal</span>
             </div>
             <ul className="space-y-1.5">

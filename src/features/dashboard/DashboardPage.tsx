@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { MacroRing } from "@/components/MacroRing";
+import { Photo } from "@/components/Photo";
+import { heroImage } from "@/lib/images";
 import { FlameIcon, DumbbellIcon, PlusIcon, MinusIcon, DropletIcon } from "@/components/icons";
 import { Spinner } from "@/components/ui";
 import { useAuth } from "@/features/auth/AuthProvider";
@@ -225,35 +227,41 @@ export function DashboardPage() {
         </button>
       )}
 
-      {/* Today's workout */}
-      <section
-        className="relative overflow-hidden rounded-[var(--radius-card)] p-4 text-white"
-        style={{ background: "linear-gradient(135deg, var(--color-brand), var(--color-brand-strong))" }}
-      >
-        <div className="flex items-start justify-between">
-          <div className="min-w-0">
-            <p className="text-xs font-medium uppercase tracking-wide opacity-80">
-              {active ? "In progress" : "Today's session"}
-            </p>
-            <h3 className="mt-0.5 font-display text-xl font-bold">
-              {active ? active.name ?? "Training" : session ? session.dayName : "No program yet"}
-            </h3>
-            <p className="mt-1 truncate text-sm opacity-90">
-              {active
-                ? `Started ${relativeDay(active.started_at).toLowerCase()}`
-                : session
-                  ? session.exerciseNames.slice(0, 4).join(" · ") || "Add exercises"
-                  : "Pick a template on the Train tab"}
-            </p>
+      {/* Today's workout — full-bleed photo hero */}
+      <section className="relative min-h-[190px] overflow-hidden rounded-[var(--radius-card)]">
+        <Photo
+          src={heroImage(active?.name ?? session?.dayName ?? "workout", 800)}
+          alt=""
+          scrim="full"
+          eager
+          className="absolute inset-0 h-full w-full"
+        />
+        <div className="relative flex min-h-[190px] flex-col justify-end p-4 text-white">
+          <div className="flex items-end justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-wide opacity-85">
+                {active ? "In progress" : "Today's session"}
+              </p>
+              <h3 className="mt-0.5 font-display text-2xl font-bold drop-shadow">
+                {active ? active.name ?? "Training" : session ? session.dayName : "No program yet"}
+              </h3>
+              <p className="mt-1 truncate text-sm opacity-90">
+                {active
+                  ? `Started ${relativeDay(active.started_at).toLowerCase()}`
+                  : session
+                    ? session.exerciseNames.slice(0, 4).join(" · ") || "Add exercises"
+                    : "Pick a template on the Train tab"}
+              </p>
+            </div>
+            <DumbbellIcon className="h-8 w-8 shrink-0 opacity-90" />
           </div>
-          <DumbbellIcon className="h-8 w-8 shrink-0 opacity-90" />
+          <button
+            onClick={() => navigate("/workouts")}
+            className="mt-4 w-full rounded-xl bg-white/95 py-3 font-bold text-[color:var(--color-brand-strong)] transition active:scale-[0.98]"
+          >
+            {active ? "Resume workout" : session ? "Go to workout" : "Build a program"}
+          </button>
         </div>
-        <button
-          onClick={() => navigate("/workouts")}
-          className="mt-4 w-full rounded-xl bg-white/95 py-3 font-bold text-[color:var(--color-brand-strong)] transition active:scale-[0.98]"
-        >
-          {active ? "Resume workout" : session ? "Go to workout" : "Build a program"}
-        </button>
       </section>
 
       {/* Water */}

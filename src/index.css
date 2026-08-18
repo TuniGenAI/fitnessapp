@@ -165,6 +165,61 @@ html {
     background-clip: text;
     color: transparent;
   }
+
+  /* --- Gradients (vibrant on heroes/CTAs, subtle on cards) --- */
+  .bg-grad-brand {
+    background-image: linear-gradient(
+      135deg,
+      var(--color-brand),
+      var(--color-brand-strong)
+    );
+  }
+  /* Energy: sky-teal → bright green, for "go" CTAs. */
+  .bg-grad-energy {
+    background-image: linear-gradient(
+      120deg,
+      var(--color-brand),
+      var(--color-accent)
+    );
+  }
+  /* Rich multi-stop mesh for hero surfaces + photo fallbacks. */
+  .bg-grad-hero {
+    background-color: var(--color-brand-strong);
+    background-image:
+      radial-gradient(
+        120% 120% at 0% 0%,
+        color-mix(in srgb, var(--color-brand) 92%, transparent),
+        transparent 55%
+      ),
+      radial-gradient(
+        120% 120% at 100% 15%,
+        color-mix(in srgb, var(--color-accent) 78%, transparent),
+        transparent 55%
+      ),
+      radial-gradient(
+        150% 130% at 65% 105%,
+        color-mix(in srgb, var(--color-calories) 62%, transparent),
+        transparent 55%
+      );
+  }
+
+  /* Dark scrims so white text stays legible over photos (both themes). */
+  .scrim-bottom {
+    background-image: linear-gradient(
+      to top,
+      rgba(3, 7, 14, 0.9) 0%,
+      rgba(3, 7, 14, 0.45) 38%,
+      transparent 72%
+    );
+  }
+  .scrim-full {
+    background-image: linear-gradient(
+      to top,
+      rgba(3, 7, 14, 0.88) 0%,
+      rgba(3, 7, 14, 0.5) 45%,
+      rgba(3, 7, 14, 0.28) 100%
+    );
+  }
 }
 
 /* Big numbers read best with tabular figures. */

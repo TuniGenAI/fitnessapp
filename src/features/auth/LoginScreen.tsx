@@ -1,5 +1,7 @@
 import { APP_NAME } from "@/appConfig";
 import { useAuth } from "./AuthProvider";
+import { Photo } from "@/components/Photo";
+import { heroImage } from "@/lib/images";
 import { GoogleIcon, DumbbellIcon, FlameIcon, TrophyIcon } from "@/components/icons";
 
 /** First screen: sign in with Google, or browse in demo mode before the backend exists. */
@@ -8,17 +10,23 @@ export function LoginScreen() {
 
   return (
     <div className="mx-auto flex min-h-full max-w-lg flex-col justify-center px-6 py-10">
-      <div className="mb-8 text-center">
-        <div
-          className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl"
-          style={{ background: "linear-gradient(135deg, var(--color-brand), var(--color-brand-strong))" }}
-        >
-          <DumbbellIcon className="h-9 w-9 text-white" />
+      <div className="relative mb-8 overflow-hidden rounded-3xl">
+        <Photo
+          src={heroImage("full body strength", 800)}
+          alt=""
+          scrim="full"
+          eager
+          className="absolute inset-0 h-full w-full"
+        />
+        <div className="relative flex min-h-[230px] flex-col justify-end p-6 text-white">
+          <div className="bg-grad-energy mb-3 flex h-12 w-12 items-center justify-center rounded-2xl">
+            <DumbbellIcon className="h-7 w-7 text-white" />
+          </div>
+          <h1 className="font-display text-3xl font-bold tracking-tight">{APP_NAME}</h1>
+          <p className="mt-2 text-sm opacity-90">
+            Know exactly what to lift and eat today. Log it in seconds. Watch your numbers go up.
+          </p>
         </div>
-        <h1 className="text-3xl font-extrabold tracking-tight">{APP_NAME}</h1>
-        <p className="mt-2 text-sm text-muted">
-          Know exactly what to lift and eat today. Log it in seconds. Watch your numbers go up.
-        </p>
       </div>
 
       <div className="mb-8 grid grid-cols-3 gap-3 text-center">
