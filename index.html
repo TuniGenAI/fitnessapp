@@ -12,13 +12,26 @@
     <title>Fitness App</title>
 
     <!-- Type: Inter (body) + Space Grotesk (display numerals/headings).
-         Degrades gracefully to system fonts if offline before caching. -->
+         Loaded non-render-blocking: the stylesheet is fetched as a preload and
+         swapped to `rel=stylesheet` on load, so first paint never waits on a
+         round-trip to Google Fonts. Degrades to system fonts until it lands
+         (and if offline before caching). -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!-- Warm the image CDN connection early — heroes/food photos hotlink here. -->
+    <link rel="preconnect" href="https://images.unsplash.com" crossorigin />
     <link
+      rel="preload"
+      as="style"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
-      rel="stylesheet"
+      onload="this.onload=null;this.rel='stylesheet'"
     />
+    <noscript>
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+      />
+    </noscript>
 
     <!-- Resolve theme before first paint so system/light users never flash
          dark. Mirrors the logic in src/lib/theme.ts. -->

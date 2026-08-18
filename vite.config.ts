@@ -64,6 +64,29 @@ export default defineConfig({
       workbox: {
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
         navigateFallbackDenylist: [/^\/api/],
+        runtimeCaching: [
+          {
+            // Hotlinked hero/food photos — cache after first view so repeat
+            // loads are instant and work offline. Images are immutable per url.
+            urlPattern: /^https:\/\/images\.unsplash\.com\/.*/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "unsplash-images",
+              expiration: { maxEntries: 60, maxAgeSeconds: 60 * 60 * 24 * 30 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Google Fonts stylesheet + font files.
+            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com\/.*/,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts",
+              expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
       },
       devOptions: {
         enabled: false,

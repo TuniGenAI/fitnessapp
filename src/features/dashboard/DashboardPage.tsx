@@ -41,6 +41,9 @@ export function DashboardPage() {
   const firstName = displayName.split(" ")[0];
 
   const [loading, setLoading] = useState(true);
+  // The "today's session" tile needs a 2nd/3rd query wave; it loads on its own
+  // timeline so it never holds up the first paint of the rings/water/weekly.
+  const [sessionLoading, setSessionLoading] = useState(true);
   const [foodTotals, setFoodTotals] = useState<Macros>({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
   const [suppTotals, setSuppTotals] = useState<Macros>({ calories: 0, protein_g: 0, carbs_g: 0, fat_g: 0 });
   const [water, setWater] = useState(0);
@@ -60,7 +63,10 @@ export function DashboardPage() {
     // resolves and the `finally` never runs), clear loading anyway after 6s so
     // the dashboard renders with whatever came back. Each request is also
     // capped individually so one slow call can't stall the whole batch.
-    const safety = setTimeout(() => setLoading(false), 6000);
+    const safety = setTimeout(() => {
+      setLoading(false);
+      setSessionLoading(false);
+    }, 6000);
     try {
       // allSettled so one failing query (e.g. a not-yet-cached table) can't
       // blank the whole dashboard — each tile degrades independently.
@@ -88,31 +94,43 @@ export function DashboardPage() {
         setTrainedThisWeek(days.size);
       }
 
-      // Today's suggested session: first day of the active program.
-      let sess: TodaySession | null = null;
-      const activeProgram = program.status === "fulfilled" ? program.value : null;
-      if (activeProgram) {
-        const ds = await withTimeout(listDays(activeProgram.id));
-        const day = ds[0] ?? null;
-        if (day) {
-          const [pex, lib] = await Promise.all([
-            withTimeout(listProgramExercises(day.id)),
-            withTimeout(listExercises()),
-          ]);
-          const libMap = new Map(lib.map((e) => [e.id, e]));
-          sess = {
-            dayId: day.id,
-            dayName: day.name,
-            exerciseNames: pex.map((p) => libMap.get(p.exercise_id)?.name).filter(Boolean) as string[],
-          };
+      // Paint now — the rings/water/weekly all have their data. Don't make the
+      // spinner wait on the extra query waves the session tile needs below.
+      setLoading(false);
+
+      // Today's suggested session: first day of the active program. Runs as a
+      // second phase; the hero shows a skeleton until this settles.
+      try {
+        let sess: TodaySession | null = null;
+        const activeProgram = program.status === "fulfilled" ? program.value : null;
+        if (activeProgram) {
+          const ds = await withTimeout(listDays(activeProgram.id));
+          const day = ds[0] ?? null;
+          if (day) {
+            const [pex, lib] = await Promise.all([
+              withTimeout(listProgramExercises(day.id)),
+              withTimeout(listExercises()),
+            ]);
+            const libMap = new Map(lib.map((e) => [e.id, e]));
+            sess = {
+              dayId: day.id,
+              dayName: day.name,
+              exerciseNames: pex.map((p) => libMap.get(p.exercise_id)?.name).filter(Boolean) as string[],
+            };
+          }
         }
+        setSession(sess);
+      } catch {
+        /* leave the session tile in its default (no program) state */
+      } finally {
+        setSessionLoading(false);
       }
-      setSession(sess);
     } catch {
       /* keep whatever loaded; never hang on the spinner */
     } finally {
       clearTimeout(safety);
       setLoading(false);
+      setSessionLoading(false);
     }
   }, []);
 
@@ -248,30 +266,48 @@ export function DashboardPage() {
           className="absolute inset-0 h-full w-full"
         />
         <div className="relative flex min-h-[190px] flex-col justify-end p-4 text-white">
-          <div className="flex items-end justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs font-medium uppercase tracking-wide opacity-85">
-                {active ? "In progress" : "Today's session"}
-              </p>
-              <h3 className="mt-0.5 font-display text-2xl font-bold drop-shadow">
-                {active ? active.name ?? "Training" : session ? session.dayName : "No program yet"}
-              </h3>
-              <p className="mt-1 truncate text-sm opacity-90">
-                {active
-                  ? `Started ${relativeDay(active.started_at).toLowerCase()}`
-                  : session
-                    ? session.exerciseNames.slice(0, 4).join(" · ") || "Add exercises"
-                    : "Pick a template on the Train tab"}
-              </p>
-            </div>
-            <DumbbellIcon className="h-8 w-8 shrink-0 opacity-90" />
-          </div>
-          <button
-            onClick={() => navigate("/workouts")}
-            className="mt-4 w-full rounded-xl bg-white/95 py-3 font-bold text-[color:var(--color-brand-strong)] transition active:scale-[0.98]"
-          >
-            {active ? "Resume workout" : session ? "Go to workout" : "Build a program"}
-          </button>
+          {sessionLoading && !active ? (
+            // Skeleton while the session query waves settle — avoids a flash of
+            // "No program yet" for users who actually have a program.
+            <>
+              <div className="flex items-end justify-between gap-3">
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="h-3 w-24 animate-pulse rounded bg-white/25" />
+                  <div className="h-6 w-40 animate-pulse rounded bg-white/30" />
+                  <div className="h-3 w-52 animate-pulse rounded bg-white/20" />
+                </div>
+                <DumbbellIcon className="h-8 w-8 shrink-0 opacity-90" />
+              </div>
+              <div className="mt-4 h-11 w-full animate-pulse rounded-xl bg-white/25" />
+            </>
+          ) : (
+            <>
+              <div className="flex items-end justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-wide opacity-85">
+                    {active ? "In progress" : "Today's session"}
+                  </p>
+                  <h3 className="mt-0.5 font-display text-2xl font-bold drop-shadow">
+                    {active ? active.name ?? "Training" : session ? session.dayName : "No program yet"}
+                  </h3>
+                  <p className="mt-1 truncate text-sm opacity-90">
+                    {active
+                      ? `Started ${relativeDay(active.started_at).toLowerCase()}`
+                      : session
+                        ? session.exerciseNames.slice(0, 4).join(" · ") || "Add exercises"
+                        : "Pick a template on the Train tab"}
+                  </p>
+                </div>
+                <DumbbellIcon className="h-8 w-8 shrink-0 opacity-90" />
+              </div>
+              <button
+                onClick={() => navigate("/workouts")}
+                className="mt-4 w-full rounded-xl bg-white/95 py-3 font-bold text-[color:var(--color-brand-strong)] transition active:scale-[0.98]"
+              >
+                {active ? "Resume workout" : session ? "Go to workout" : "Build a program"}
+              </button>
+            </>
+          )}
         </div>
       </section>
 

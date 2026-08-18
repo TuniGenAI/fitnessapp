@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import type { ComponentType, SVGProps } from "react";
 import {
@@ -8,6 +9,7 @@ import {
   SettingsIcon,
 } from "./icons";
 import { InstallPrompt } from "./InstallPrompt";
+import { Spinner } from "./ui";
 
 interface Tab {
   to: string;
@@ -33,7 +35,9 @@ export function AppShell() {
   return (
     <div className="mx-auto flex h-full max-w-lg flex-col overflow-hidden">
       <main className="flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-4">
-        <Outlet />
+        <Suspense fallback={<Spinner />}>
+          <Outlet />
+        </Suspense>
       </main>
 
       <InstallPrompt />

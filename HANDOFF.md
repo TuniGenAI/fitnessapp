@@ -8,6 +8,27 @@
 
 ## Where we are
 
+> **⚡ Load/render performance pass (2026-08-18) — app v0.13.0.**
+> Targeted cold-start, navigation, and first-paint. Behavior unchanged except the Dashboard now
+> skeletons instead of one long spinner.
+> 1. **Route code-splitting.** [`src/App.tsx`](./src/App.tsx) now `React.lazy`-loads Workouts, Nutrition,
+>    Body, and Settings; Dashboard + Login + shell stay eager for an instant landing paint.
+>    [`AppShell`](./src/components/AppShell.tsx) wraps the `<Outlet/>` in `<Suspense>`, so the tab bar
+>    stays visible while a page chunk loads. **Result:** the eager `index` chunk dropped from **50.96 → 22.61 kB
+>    gzip**; eager cold-start JS (index+react+supabase) went **~162 → ~134 kB gzip**, and the two heaviest
+>    tabs (Workouts 15 kB, Nutrition 12 kB gzip) now fetch only on first tap. Verified in the browser: each
+>    page chunk loads on navigation only, no console errors.
+> 2. **Non-blocking fonts + preconnect.** [`index.html`](./index.html) loads the Google Fonts stylesheet via
+>    `rel=preload`→`onload` swap (with `<noscript>` fallback) so first paint no longer waits on a font
+>    round-trip, and adds `preconnect` to `images.unsplash.com` to warm the photo-CDN connection early.
+> 3. **Service-worker runtime caching (closes the imagery trade-off below).** [`vite.config.ts`](./vite.config.ts)
+>    workbox now has `runtimeCaching` `CacheFirst` rules for `images.unsplash.com` and Google Fonts — repeat
+>    cold starts serve photos/fonts from cache, and they now work **offline**.
+> 4. **Skeleton-first Dashboard.** [`DashboardPage`](./src/features/dashboard/DashboardPage.tsx) clears the
+>    spinner right after the first (parallel) query batch instead of waiting on the extra query waves the
+>    "today's session" hero needs; the hero shows a pulse skeleton (no "No program yet" flash) until it settles.
+> **Next deploy:** push to `main` (auto-deploys to Vercel). No migrations, no edge-function changes.
+
 > **🎨 Imagery + gradients, and a spinner-hang fix (2026-08-18) — DEPLOYED (`5eb5322`, `61a74bd`).**
 > Two-part design pass on top of the existing **"Calm Athletic"** system (see CLAUDE.md → *Design system*).
 > 1. **Real photography + gradients.** New [`src/lib/images.ts`](./src/lib/images.ts) serves **curated,

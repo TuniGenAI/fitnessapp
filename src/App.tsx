@@ -1,12 +1,26 @@
+import { lazy } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppShell } from "@/components/AppShell";
 import { useAuth, useIsAuthed } from "@/features/auth/AuthProvider";
 import { LoginScreen } from "@/features/auth/LoginScreen";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
-import { WorkoutsPage } from "@/features/workouts/WorkoutsPage";
-import { NutritionPage } from "@/features/nutrition/NutritionPage";
-import { BodyPage } from "@/features/body/BodyPage";
-import { SettingsPage } from "@/features/settings/SettingsPage";
+
+// The landing (Dashboard) and shell load eagerly for an instant first paint.
+// The four heavier tabs are split into their own chunks and fetched on first
+// navigation, so they stay off the cold-start critical path. AppShell wraps the
+// outlet in <Suspense>, so the tab bar remains visible while a chunk loads.
+const WorkoutsPage = lazy(() =>
+  import("@/features/workouts/WorkoutsPage").then((m) => ({ default: m.WorkoutsPage })),
+);
+const NutritionPage = lazy(() =>
+  import("@/features/nutrition/NutritionPage").then((m) => ({ default: m.NutritionPage })),
+);
+const BodyPage = lazy(() =>
+  import("@/features/body/BodyPage").then((m) => ({ default: m.BodyPage })),
+);
+const SettingsPage = lazy(() =>
+  import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })),
+);
 
 export default function App() {
   const { ready } = useAuth();
