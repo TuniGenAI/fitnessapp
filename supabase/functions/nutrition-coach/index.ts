@@ -103,13 +103,21 @@ Deno.serve(async (request: Request) => {
     } = await supabase.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
 
-    const { data: profile } = await supabase
+    // Read the caller's own key with the service role — the forwarded user JWT
+    // was unreliable for the RLS'd profiles SELECT, so a saved key read back
+    // empty and the AI silently fell back. Scoped to user.id; the service-role
+    // secret never leaves the server. (See coach/index.ts for the full note.)
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serviceKey) return json({ fallback: true, error: "server misconfigured: no SUPABASE_SERVICE_ROLE_KEY" });
+    const admin = createClient(Deno.env.get("SUPABASE_URL")!, serviceKey);
+    const { data: profile, error: readErr } = await admin
       .from("profiles")
       .select("gemini_api_key")
       .eq("id", user.id)
       .maybeSingle();
+    if (readErr) return json({ fallback: true, error: `profiles read failed: ${readErr.message}` });
     const key = profile?.gemini_api_key ?? Deno.env.get("GEMINI_API_KEY");
-    if (!key) return json({ fallback: true });
+    if (!key) return json({ fallback: true, error: profile ? "gemini_api_key empty — re-save in Settings" : "no profiles row" });
 
     const body = (await request.json()) as Req;
     if (!body?.context) return json({ error: "no context" }, 400);
