@@ -28,11 +28,12 @@ const cors = {
 };
 
 interface CoachRequest {
-  kind: "briefing" | "recap" | "reaction";
+  kind: "briefing" | "recap" | "reaction" | "plan";
   // Compact context — only what the coach needs (keeps us in the free tier).
   dayName?: string;
   goal?: string | null;
   bodyweightKg?: number | null;
+  unit?: string; // "kg" | "lb" — the unit all weights below are expressed in (plan)
   exercises?: {
     name: string;
     target?: string; // e.g. "4 × 5–8"
@@ -43,7 +44,44 @@ interface CoachRequest {
   history?: string; // recent recaps, for cross-session continuity
 }
 
+/**
+ * The `plan` kind is the pre-workout coach: it reads each exercise's history +
+ * the rule engine's suggested next target (the "anchor") and returns a STRUCTURED
+ * plan — a motivating intro plus, per exercise, a next weight×reps and a one-line
+ * reason. The client clamps every number back to a safe band around the anchor,
+ * so the JSON here is a proposal, never the final word (hybrid guardrail).
+ */
+function buildPlanPrompt(req: CoachRequest): string {
+  const unit = req.unit === "lb" ? "lb" : "kg";
+  const lines: string[] = [];
+  lines.push(
+    `You are a sharp, upbeat strength coach planning today's session. Every set the athlete logs is taken to MUSCULAR FAILURE, so the reps shown are their true max at that weight (there is no RPE — judge effort purely from weight and reps). All weights are in ${unit}.`,
+  );
+  lines.push(
+    "Progressive-overload logic: if last time they reached the TOP of the target rep range, add load and reset toward the bottom of the range; if they fell short of the top, keep the weight and chase one more rep; if they blew well past the top, a slightly bigger jump is warranted.",
+  );
+  lines.push(
+    `Each exercise below lists its target set×rep scheme, last session's working sets, and a rule-engine SUGGESTION. Treat the suggestion as your anchor: stay close to it and only deviate when the real numbers clearly justify it — never move the weight more than about two increments (~5 ${unit}) from it, and keep reps inside the target range.`,
+  );
+  if (req.dayName) lines.push(`Session: ${req.dayName}.`);
+  if (req.goal) lines.push(`Goal: ${req.goal}.`);
+  if (req.bodyweightKg) lines.push(`Bodyweight: ${req.bodyweightKg} kg.`);
+  lines.push("Exercises (use the leading index in your output):");
+  (req.exercises ?? []).forEach((e, i) => {
+    lines.push(
+      `${i}. ${e.name}${e.target ? ` (target ${e.target})` : ""}${
+        e.lastTime ? `, last time ${e.lastTime}` : ", no prior data"
+      }${e.suggestion ? `, suggestion ${e.suggestion}` : ""}`,
+    );
+  });
+  lines.push(
+    `Return ONLY JSON of the form {"intro": "<one short, motivating sentence for the whole session>", "exercises": [{"index": <number matching the input>, "weight": <number in ${unit}>, "reps": <number inside the target rep range>, "why": "<one concise sentence citing the real reps/weight and the progression logic>"}]}. Include one object per exercise, in the same order.`,
+  );
+  return lines.join("\n");
+}
+
 function buildPrompt(req: CoachRequest): string {
+  if (req.kind === "plan") return buildPlanPrompt(req);
   const lines: string[] = [];
   if (req.kind === "briefing") {
     lines.push(
@@ -131,6 +169,7 @@ Deno.serve(async (request: Request) => {
 
     const body = (await request.json()) as CoachRequest;
     const prompt = buildPrompt(body);
+    const isPlan = body.kind === "plan";
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
@@ -146,10 +185,13 @@ Deno.serve(async (request: Request) => {
           // returned EMPTY text (surfaced as the rule-based fallback / "AI didn't
           // work"). Disabling thinking makes the coach fast and reliable; the
           // prompt already keeps the prose short so no reasoning headroom is lost.
+          // The plan needs a bit more room (structured JSON over several
+          // exercises) and asks for machine-readable JSON directly.
           generationConfig: {
-            temperature: 0.8,
-            maxOutputTokens: 512,
+            temperature: isPlan ? 0.6 : 0.8,
+            maxOutputTokens: isPlan ? 800 : 512,
             thinkingConfig: { thinkingBudget: 0 },
+            ...(isPlan ? { responseMimeType: "application/json" } : {}),
           },
         }),
       },
@@ -161,6 +203,22 @@ Deno.serve(async (request: Request) => {
     const data = await res.json();
     const text: string | undefined =
       data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim();
+
+    if (isPlan) {
+      // Parse the structured plan. A malformed/empty response degrades to
+      // fallback so the client keeps its rule-based prefill — never blocks.
+      if (!text) return json({ fallback: true, error: "empty plan from gemini" });
+      try {
+        const parsed = JSON.parse(text);
+        if (!parsed || !Array.isArray(parsed.exercises)) {
+          return json({ fallback: true, error: "plan JSON missing exercises[]" });
+        }
+        return json({ plan: parsed });
+      } catch (e) {
+        return json({ fallback: true, error: `plan parse failed: ${String(e).slice(0, 120)}` });
+      }
+    }
+
     return json({ text: text ?? null, fallback: !text });
   } catch (e) {
     return json({ fallback: true, error: String(e) }, 200);

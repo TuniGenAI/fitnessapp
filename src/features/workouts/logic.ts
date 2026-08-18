@@ -135,6 +135,34 @@ export function deloadTarget(
   };
 }
 
+// ---- AI guardrail -----------------------------------------------------------
+/**
+ * Clamp an AI-proposed next target to a safe band around the rule engine's
+ * anchor (the hybrid guardrail — CLAUDE.md AI-coach note). The AI keeps real
+ * judgment inside the band, but a hallucinated number (e.g. 100 kg on a lift you
+ * last did at 60) can never reach the prefilled logger:
+ *   • weight is clamped to within TWO plate increments (±5 kg / ±10 lb) of the
+ *     rule weight, then snapped to the increment grid;
+ *   • reps are clamped to the exercise's target rep range.
+ * Pure, so it's trivially testable and runs client-side after every AI response —
+ * the last line of defense regardless of what the server returns.
+ */
+export function clampSuggestionToBand(
+  proposed: { weightKg: number; reps: number },
+  anchorKg: number,
+  repLow: number,
+  repHigh: number,
+  unit: WeightUnit,
+): { weightKg: number; reps: number } {
+  const inc = weightIncrementKg(unit);
+  const band = inc * 2; // ±2 increments
+  const lo = anchorKg - band;
+  const hi = anchorKg + band;
+  const weightKg = roundTo(Math.max(lo, Math.min(hi, proposed.weightKg)), inc);
+  const reps = Math.round(Math.max(repLow, Math.min(repHigh, proposed.reps)));
+  return { weightKg: Math.max(inc, weightKg), reps: Math.max(1, reps) };
+}
+
 // ---- Personal records -------------------------------------------------------
 export interface PrCandidate {
   record_type: RecordType;

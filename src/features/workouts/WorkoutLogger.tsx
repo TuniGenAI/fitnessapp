@@ -38,11 +38,20 @@ import {
   prTypeLabel,
   detectStall,
   deloadTarget,
+  clampSuggestionToBand,
   type TargetSuggestion,
 } from "./logic";
 import { ExercisePicker } from "./ExercisePicker";
-import { getRecap, getReaction, saveCoachMessage } from "@/features/coach/api";
+import {
+  getRecap,
+  getReaction,
+  saveCoachMessage,
+  getWorkoutPlan,
+  getWorkoutBriefing,
+  type StoredPlan,
+} from "@/features/coach/api";
 import { reactionForSet } from "@/features/coach/logic";
+import { usingBackend } from "@/lib/session";
 import {
   restTimerOn,
   restSeconds,
@@ -86,6 +95,10 @@ export function WorkoutLogger({
   // Monotonic token so a late AI reaction from an earlier set can't overwrite a
   // newer set's toast.
   const reactionToken = useRef(0);
+  // Pre-workout AI plan (briefing + hybrid targets), keyed by exerciseId.
+  const [plan, setPlan] = useState<StoredPlan | null>(null);
+  const [planning, setPlanning] = useState(false);
+  const planStarted = useRef(false);
 
   function flashToast(msg: string) {
     setToast(msg);
@@ -158,6 +171,79 @@ export function WorkoutLogger({
   useEffect(() => {
     load();
   }, [load]);
+
+  // Pre-workout AI plan. Fires ONCE per session, only after entries are built.
+  // This is a deliberate trigger (you chose to start a workout) — never a passive
+  // screen load, per the free-tier quota history in CLAUDE.md. The result is
+  // clamped to the guardrail band and persisted to the workout, so a mid-session
+  // reload reuses it instead of re-calling the AI. No history / AI off / any
+  // failure → no panel and the plain rule-based prefill stands (nothing changes).
+  useEffect(() => {
+    if (loading || planStarted.current) return;
+    planStarted.current = true;
+    (async () => {
+      const stored = await getWorkoutBriefing(workout.id);
+      if (stored) {
+        setPlan(stored);
+        return;
+      }
+      if (!coachEnabled || !usingBackend()) return;
+      const coachable = entries.filter((e) => e.suggestion && e.last.length > 0);
+      if (coachable.length === 0) return;
+
+      setPlanning(true);
+      try {
+        const ai = await getWorkoutPlan({
+          dayName: workout.name ?? "Training",
+          unit,
+          exercises: coachable.map((e) => ({
+            name: e.exercise.name,
+            target: e.target
+              ? `${e.target.target_sets} × ${e.target.target_reps_low}–${e.target.target_reps_high}`
+              : undefined,
+            lastTime:
+              workingSets(e.last)
+                .map((s) => `${trim(toDisplayWeight(s.weight_kg, unit))} × ${s.reps}`)
+                .join(", ") || undefined,
+            suggestion: e.suggestion
+              ? `${trim(toDisplayWeight(e.suggestion.weightKg, unit))} × ${e.suggestion.reps}`
+              : undefined,
+          })),
+        });
+        if (!ai) return; // keep rule prefill, show no panel
+
+        const built: StoredPlan = {
+          intro: (ai.intro ?? "").slice(0, 400),
+          ai: true,
+          exercises: [],
+        };
+        for (const ax of ai.exercises) {
+          const entry = coachable[ax.index];
+          if (!entry?.suggestion) continue;
+          const clamped = clampSuggestionToBand(
+            { weightKg: fromDisplayWeight(ax.weight, unit), reps: ax.reps },
+            entry.suggestion.weightKg,
+            entry.target?.target_reps_low ?? 8,
+            entry.target?.target_reps_high ?? 12,
+            unit,
+          );
+          built.exercises.push({
+            exerciseId: entry.exercise.id,
+            weightKg: clamped.weightKg,
+            reps: clamped.reps,
+            why: (ax.why ?? "").slice(0, 200),
+          });
+        }
+        if (built.exercises.length === 0) return;
+        setPlan(built);
+        await saveCoachMessage("briefing", JSON.stringify(built), workout.id);
+      } finally {
+        setPlanning(false);
+      }
+    })();
+    // Runs once when entries finish loading (guarded by planStarted).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   async function onLog(
     entry: Entry,
@@ -293,6 +379,16 @@ export function WorkoutLogger({
 
   const totalSets = entries.reduce((n, e) => n + workingSets(e.sets).length, 0);
 
+  // Coach targets keyed by exerciseId, and a name lookup for the plan panel.
+  const planMap = useMemo(
+    () => new Map((plan?.exercises ?? []).map((p) => [p.exerciseId, p])),
+    [plan],
+  );
+  const nameById = useMemo(
+    () => new Map(entries.map((e) => [e.exercise.id, e.exercise.name])),
+    [entries],
+  );
+
   return (
     <div className="space-y-4">
       <SessionHeader
@@ -302,14 +398,32 @@ export function WorkoutLogger({
         onFinish={finishWorkout}
       />
 
+      {(planning || plan) && (
+        <CoachPlanPanel plan={plan} nameById={nameById} unit={unit} />
+      )}
+
       {loading ? (
         <Spinner />
       ) : (
         <>
-          {entries.map((e) => (
+          {entries.map((e) => {
+            // Overlay the coach's clamped target onto this card's suggestion when
+            // the plan covers it; otherwise the rule-based suggestion stands.
+            const planned = planMap.get(e.exercise.id);
+            const shown: Entry = planned
+              ? {
+                  ...e,
+                  suggestion: {
+                    weightKg: planned.weightKg,
+                    reps: planned.reps,
+                    reason: planned.why || "Coach's target for today",
+                  },
+                }
+              : e;
+            return (
             <ExerciseLogCard
               key={e.exercise.id}
-              entry={e}
+              entry={shown}
               unit={unit}
               pending={loggingId === e.exercise.id}
               onLog={(w, r, warm, rpe) => onLog(e, w, r, warm, rpe)}
@@ -326,7 +440,8 @@ export function WorkoutLogger({
                 }
               }}
             />
-          ))}
+            );
+          })}
 
           <AddButton label="Add exercise" onClick={() => setPicking(true)} />
         </>
@@ -418,6 +533,62 @@ export function WorkoutLogger({
           >
             {toast}
           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pre-workout coach panel at the top of the logger: an AI intro line plus a
+ * compact list of today's targets per exercise. Shows a "reading your history"
+ * state while the plan is in flight. Only rendered when there's a plan (or one
+ * loading) — a first-ever session with no history shows nothing here.
+ */
+function CoachPlanPanel({
+  plan,
+  nameById,
+  unit,
+}: {
+  plan: StoredPlan | null;
+  nameById: Map<string, string>;
+  unit: "kg" | "lb";
+}) {
+  return (
+    <div className="card p-4">
+      <div className="flex items-center gap-2">
+        <DumbbellIcon className="h-4 w-4 shrink-0" style={{ color: "var(--color-brand-soft)" }} />
+        <h2 className="text-sm font-bold" style={{ color: "var(--color-brand-soft)" }}>
+          Coach's plan
+        </h2>
+      </div>
+
+      {plan ? (
+        <>
+          {plan.intro && <p className="mt-2 text-sm leading-relaxed">{plan.intro}</p>}
+          {plan.exercises.length > 0 && (
+            <ul className="mt-3 space-y-1.5">
+              {plan.exercises.map((p) => (
+                <li
+                  key={p.exerciseId}
+                  className="rounded-lg px-3 py-2 text-sm"
+                  style={{ background: "var(--color-surface-2)" }}
+                >
+                  <span className="font-semibold">{nameById.get(p.exerciseId) ?? "Exercise"}</span>
+                  <span className="mx-1.5 text-muted">→</span>
+                  <span className="font-bold" style={{ color: "var(--color-accent)" }}>
+                    {formatWeight(p.weightKg, unit)} × {p.reps}
+                  </span>
+                  {p.why && <span className="mt-0.5 block text-xs text-muted">{p.why}</span>}
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      ) : (
+        <div className="mt-2 flex items-center gap-2 text-sm text-muted">
+          <Spinner />
+          <span>Reading your last sessions to set today's targets…</span>
         </div>
       )}
     </div>
@@ -601,8 +772,19 @@ function ExerciseLogCard({
   const [reps, setReps] = useState(initial.reps);
   const [warmup, setWarmup] = useState(false);
   const [rpe, setRpe] = useState<number | null>(null);
+  const [showLast, setShowLast] = useState(false); // full previous-session list
+  // The AI plan can land AFTER this card first renders (it's non-blocking), which
+  // changes `initial`. Snap the draft to the new target — but only while the user
+  // hasn't hand-adjusted it, so we never yank numbers out from under them mid-entry.
+  const edited = useRef(false);
+  useEffect(() => {
+    if (edited.current) return;
+    setWeight(initial.weight);
+    setReps(initial.reps);
+  }, [initial.weight, initial.reps]);
 
   const lastBest = bestSet(last);
+  const lastWorking = workingSets(last);
 
   return (
     <div className="card p-4">
@@ -617,14 +799,41 @@ function ExerciseLogCard({
           )}
         </div>
         {lastBest && (
-          <div className="text-right">
-            <p className="text-[10px] uppercase tracking-wide text-muted">Last time</p>
-            <p className="text-sm font-semibold">
-              {formatWeight(lastBest.weight_kg, unit)} × {lastBest.reps}
+          // Tap to expand every set from last session (collapsed by default so the
+          // card stays compact). Falls back to a static label if there was only
+          // the one set.
+          <button
+            type="button"
+            onClick={() => lastWorking.length > 1 && setShowLast((v) => !v)}
+            className="text-right"
+            aria-expanded={showLast}
+          >
+            <p className="text-[10px] uppercase tracking-wide text-muted">
+              Last time{lastWorking.length > 1 ? ` · ${lastWorking.length} sets` : ""}
             </p>
-          </div>
+            <p className="text-sm font-semibold" style={{ color: showLast ? "var(--color-brand-soft)" : undefined }}>
+              {formatWeight(lastBest.weight_kg, unit)} × {lastBest.reps}
+              {lastWorking.length > 1 && (
+                <span className="ml-1 text-xs text-muted">{showLast ? "▲" : "▼"}</span>
+              )}
+            </p>
+          </button>
         )}
       </div>
+
+      {showLast && lastWorking.length > 1 && (
+        <ul className="mt-2 flex flex-wrap gap-1.5">
+          {lastWorking.map((s, i) => (
+            <li
+              key={s.id}
+              className="rounded-lg px-2.5 py-1 text-xs font-medium"
+              style={{ background: "var(--color-surface-2)" }}
+            >
+              <span className="text-muted">{i + 1}.</span> {formatWeight(s.weight_kg, unit)} × {s.reps}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {suggestion && (
         <div
@@ -688,7 +897,10 @@ function ExerciseLogCard({
           <p className="mb-1 text-[11px] font-semibold text-muted">Weight ({unit})</p>
           <Stepper
             value={weight}
-            onChange={setWeight}
+            onChange={(v) => {
+              edited.current = true;
+              setWeight(v);
+            }}
             step={toDisplayWeight(inc, unit)}
             min={0}
             decimals={2}
@@ -696,7 +908,15 @@ function ExerciseLogCard({
         </div>
         <div>
           <p className="mb-1 text-[11px] font-semibold text-muted">Reps</p>
-          <Stepper value={reps} onChange={setReps} step={1} min={0} />
+          <Stepper
+            value={reps}
+            onChange={(v) => {
+              edited.current = true;
+              setReps(v);
+            }}
+            step={1}
+            min={0}
+          />
         </div>
       </div>
 

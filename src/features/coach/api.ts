@@ -6,7 +6,7 @@
 import { supabase } from "@/lib/supabase";
 import { usingBackend, getUserId } from "@/lib/session";
 import { insertRow, selectRows } from "@/lib/repo";
-import type { CoachMessage, CoachRole } from "@/types";
+import type { CoachMessage, CoachRole, WeightUnit } from "@/types";
 import {
   buildBriefing,
   buildRecap,
@@ -131,6 +131,95 @@ export async function getRecap(
     if (ai) return { text: ai, ai: true };
   }
   return { text: buildRecap(ctx), ai: false };
+}
+
+// ---- Pre-workout plan (AI briefing + hybrid targets) ------------------------
+/** One exercise's context sent to the coach for planning (display strings). */
+export interface PlanExerciseInput {
+  name: string;
+  target?: string; // "4 × 8–12"
+  lastTime?: string; // "60 × 8, 60 × 8, 57.5 × 6" (in the user's unit)
+  suggestion?: string; // rule-engine anchor, "62.5 × 8"
+}
+
+/** Raw per-exercise target the AI proposes (weight in the caller's unit). */
+export interface AiPlanExercise {
+  index: number;
+  weight: number;
+  reps: number;
+  why: string;
+}
+export interface AiPlan {
+  intro?: string;
+  exercises: AiPlanExercise[];
+}
+
+/**
+ * Fetch the AI pre-workout plan. Returns the RAW proposal — the caller clamps
+ * every number to a safe band around the rule anchor (`clampSuggestionToBand`)
+ * before it reaches the logger. Null on AI off / no key / quota / any error, so
+ * the caller falls back to the rule-based prefill and shows no briefing panel.
+ */
+export async function getWorkoutPlan(input: {
+  dayName: string;
+  unit: WeightUnit;
+  goal?: string | null;
+  bodyweightKg?: number | null;
+  exercises: PlanExerciseInput[];
+}): Promise<AiPlan | null> {
+  if (!usingBackend() || !supabase) return null;
+  try {
+    const { data, error } = await supabase.functions.invoke<{
+      plan?: AiPlan;
+      fallback?: boolean;
+      error?: string;
+    }>("coach", { body: { kind: "plan", ...input } });
+    if (error) {
+      console.warn(`[coach] plan invoke failed:`, error.message ?? error);
+      return null;
+    }
+    if (!data || data.fallback || !data.plan || !Array.isArray(data.plan.exercises)) {
+      if (data?.error) console.warn(`[coach] plan fell back:`, data.error);
+      return null;
+    }
+    return data.plan;
+  } catch (e) {
+    console.warn(`[coach] plan threw:`, e);
+    return null;
+  }
+}
+
+/**
+ * The plan as persisted to the workout (a `briefing` coach_messages row, JSON in
+ * `content`). Keyed by exerciseId so it survives a mid-session reload and an
+ * exercise being added, and reused instead of re-firing the AI (no extra quota).
+ */
+export interface StoredPlanExercise {
+  exerciseId: string;
+  weightKg: number;
+  reps: number;
+  why: string;
+}
+export interface StoredPlan {
+  intro: string;
+  ai: boolean;
+  exercises: StoredPlanExercise[];
+}
+
+/** Read this workout's persisted plan, or null if none / unparseable. */
+export async function getWorkoutBriefing(workoutId: string): Promise<StoredPlan | null> {
+  try {
+    const briefings = (await listCoachMessages(workoutId)).filter(
+      (m) => m.role === "briefing",
+    );
+    const latest = briefings[0]; // listCoachMessages is newest-first
+    if (!latest) return null;
+    const parsed = JSON.parse(latest.content) as StoredPlan;
+    if (!parsed || !Array.isArray(parsed.exercises)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
 }
 
 /**
