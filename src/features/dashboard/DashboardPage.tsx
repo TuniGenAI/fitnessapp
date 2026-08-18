@@ -25,6 +25,7 @@ import {
 } from "@/features/nutrition/api";
 import { getSupplementMacros } from "@/features/supplements/api";
 import { SupplementChecklist } from "@/features/supplements/SupplementChecklist";
+import { withTimeout } from "@/lib/async";
 import type { Workout } from "@/types";
 
 interface TodaySession {
@@ -54,16 +55,22 @@ export function DashboardPage() {
   }, []);
 
   const load = useCallback(async () => {
+    // Hard safety net: never let the spinner hang. If a request stalls (a flaky
+    // connection can leave a fetch pending forever, so `allSettled` below never
+    // resolves and the `finally` never runs), clear loading anyway after 6s so
+    // the dashboard renders with whatever came back. Each request is also
+    // capped individually so one slow call can't stall the whole batch.
+    const safety = setTimeout(() => setLoading(false), 6000);
     try {
       // allSettled so one failing query (e.g. a not-yet-cached table) can't
       // blank the whole dashboard — each tile degrades independently.
       const [food, supp, w, act, program, workouts] = await Promise.allSettled([
-        getFoodTotals(),
-        getSupplementMacros(),
-        getWaterMl(),
-        getActiveWorkout(),
-        getActiveProgram(),
-        listWorkouts(50),
+        withTimeout(getFoodTotals()),
+        withTimeout(getSupplementMacros()),
+        withTimeout(getWaterMl()),
+        withTimeout(getActiveWorkout()),
+        withTimeout(getActiveProgram()),
+        withTimeout(listWorkouts(50)),
       ]);
       if (food.status === "fulfilled") setFoodTotals(food.value);
       if (supp.status === "fulfilled") setSuppTotals(supp.value);
@@ -85,10 +92,13 @@ export function DashboardPage() {
       let sess: TodaySession | null = null;
       const activeProgram = program.status === "fulfilled" ? program.value : null;
       if (activeProgram) {
-        const ds = await listDays(activeProgram.id);
+        const ds = await withTimeout(listDays(activeProgram.id));
         const day = ds[0] ?? null;
         if (day) {
-          const [pex, lib] = await Promise.all([listProgramExercises(day.id), listExercises()]);
+          const [pex, lib] = await Promise.all([
+            withTimeout(listProgramExercises(day.id)),
+            withTimeout(listExercises()),
+          ]);
           const libMap = new Map(lib.map((e) => [e.id, e]));
           sess = {
             dayId: day.id,
@@ -101,6 +111,7 @@ export function DashboardPage() {
     } catch {
       /* keep whatever loaded; never hang on the spinner */
     } finally {
+      clearTimeout(safety);
       setLoading(false);
     }
   }, []);

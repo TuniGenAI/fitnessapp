@@ -4,6 +4,7 @@ import { useProfile } from "@/features/profile/ProfileProvider";
 import { MacroRing } from "@/components/MacroRing";
 import { Photo } from "@/components/Photo";
 import { mealImage, foodImage } from "@/lib/images";
+import { withTimeout } from "@/lib/async";
 import {
   PageHeader,
   Button,
@@ -57,17 +58,20 @@ export function NutritionPage() {
   const isToday = date === todayISO();
 
   const load = useCallback(async () => {
+    // Safety net so a stalled request can never hang the spinner.
+    const safety = setTimeout(() => setLoading(false), 6000);
     try {
       // allSettled so one failing query can't blank the whole screen.
       const [l, w, m] = await Promise.allSettled([
-        listFoodLogs(date),
-        getWaterMl(date),
-        listMeals(),
+        withTimeout(listFoodLogs(date)),
+        withTimeout(getWaterMl(date)),
+        withTimeout(listMeals()),
       ]);
       if (l.status === "fulfilled") setLogs(l.value);
       if (w.status === "fulfilled") setWater(w.value);
       if (m.status === "fulfilled") setMeals(m.value);
     } finally {
+      clearTimeout(safety);
       setLoading(false);
     }
   }, [date]);

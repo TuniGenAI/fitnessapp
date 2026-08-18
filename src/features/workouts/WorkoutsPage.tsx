@@ -3,6 +3,7 @@ import type { Exercise, Program, ProgramDay, Workout } from "@/types";
 import { PageHeader, Button, Segmented, Spinner, EmptyState, DateNav } from "@/components/ui";
 import { Photo } from "@/components/Photo";
 import { heroImage } from "@/lib/images";
+import { withTimeout } from "@/lib/async";
 import { DumbbellIcon, ListIcon, PlusIcon } from "@/components/icons";
 import { todayISO, friendlyDate } from "@/lib/format";
 import {
@@ -42,32 +43,40 @@ export function WorkoutsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [act, prog, lib] = await Promise.all([
-      getActiveWorkout(),
-      getActiveProgram(),
-      listExercises(),
-    ]);
-    const libMap = new Map(lib.map((e) => [e.id, e]));
-    let summaries: DaySummary[] = [];
-    if (prog) {
-      const ds = await listDays(prog.id);
-      summaries = await Promise.all(
-        ds.map(async (day) => {
-          const pex = await listProgramExercises(day.id);
-          return {
-            day,
-            exerciseNames: pex
-              .map((p) => libMap.get(p.exercise_id)?.name)
-              .filter(Boolean) as string[],
-          };
-        }),
-      );
+    // Safety net so a stalled/failed request can never hang the spinner.
+    const safety = setTimeout(() => setLoading(false), 6000);
+    try {
+      const [act, prog, lib] = await Promise.all([
+        withTimeout(getActiveWorkout()),
+        withTimeout(getActiveProgram()),
+        withTimeout(listExercises()),
+      ]);
+      const libMap = new Map(lib.map((e) => [e.id, e]));
+      let summaries: DaySummary[] = [];
+      if (prog) {
+        const ds = await withTimeout(listDays(prog.id));
+        summaries = await Promise.all(
+          ds.map(async (day) => {
+            const pex = await withTimeout(listProgramExercises(day.id));
+            return {
+              day,
+              exerciseNames: pex
+                .map((p) => libMap.get(p.exercise_id)?.name)
+                .filter(Boolean) as string[],
+            };
+          }),
+        );
+      }
+      setActive(act);
+      setProgram(prog);
+      setDays(summaries);
+      setLibrary(lib);
+    } catch {
+      /* keep whatever loaded; the finally clears the spinner */
+    } finally {
+      clearTimeout(safety);
+      setLoading(false);
     }
-    setActive(act);
-    setProgram(prog);
-    setDays(summaries);
-    setLibrary(lib);
-    setLoading(false);
   }, []);
 
   useEffect(() => {
