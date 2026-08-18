@@ -8,6 +8,30 @@
 
 ## Where we are
 
+> **🎨 Imagery + gradients, and a spinner-hang fix (2026-08-18) — DEPLOYED (`5eb5322`, `61a74bd`).**
+> Two-part design pass on top of the existing **"Calm Athletic"** system (see CLAUDE.md → *Design system*).
+> 1. **Real photography + gradients.** New [`src/lib/images.ts`](./src/lib/images.ts) serves **curated,
+>    hotlinked Unsplash CDN photos** (zero disk / no bundle cost; all 24 ids verified to load). Selection
+>    is category-accurate — `heroImage(name)` picks workout/cardio/yoga by keyword, `mealImage(mealType)`
+>    picks food by meal category, `foodImage(seed)` is a deterministic per-name pick (never a random food
+>    on a specific item). New [`src/components/Photo.tsx`](./src/components/Photo.tsx) fades the photo in,
+>    supports a dark scrim for legible overlay text, and **falls back to a brand gradient on any load
+>    error** (never a broken-image icon). Gradient utilities (`.bg-grad-brand/-energy/-hero`, `.scrim-*`)
+>    added to `index.css`. **Wired in:** dashboard "Today's session" full-bleed photo hero, workout
+>    plan-day thumbnail rail, nutrition meal-section + saved-meal thumbnails, login photo hero, and a
+>    teal→green gradient fill on the 7-day calorie bars. **Trade-off:** images need a network connection;
+>    offline they show the gradient fallback (no workbox runtime-caching rule yet — a small future tweak).
+> 2. **Spinner could hang forever (`61a74bd`).** Root cause: each screen's `load()` awaited Supabase via
+>    `Promise.allSettled`, which only resolves once **all** requests settle — a *stalled* request (flaky
+>    net, or a **cold/paused free-tier Supabase project**) left a fetch pending forever, so the `finally`
+>    that clears the spinner never ran. WorkoutsPage was worse (no `finally` at all). **Fix:** new
+>    [`src/lib/async.ts`](./src/lib/async.ts) `withTimeout` (5 s per request) + a 6 s safety timer on
+>    Dashboard/Workouts/Nutrition `load()` that clears loading no matter what. A screen now always renders
+>    within ~6 s, degrading to whatever returned. *Not* caused by the imagery (photos render only after
+>    loading clears). `npm run build` green; verified image URLs load + gradients/Photo render live.
+>    **Watch:** if data looks empty (not just slow), the Supabase project may have **paused** — open the
+>    Supabase dashboard once to wake it. A "couldn't reach server — retry" banner was offered but not built.
+
 > **📸 Meal-photo description (2026-08-18, app v0.12.2) — DEPLOYED.** The photo AI often misread a
 > picture's contents (chicken vs turkey, hidden oil/sauce). The **Photo** tab (`AddFoodSheet.tsx`) now
 > has an **optional Description field** above the picker; the note is sent with the image and
