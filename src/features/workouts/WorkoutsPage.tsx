@@ -4,7 +4,7 @@ import { PageHeader, Button, Segmented, Spinner, EmptyState, DateNav } from "@/c
 import { Photo } from "@/components/Photo";
 import { heroImage } from "@/lib/images";
 import { withTimeout } from "@/lib/async";
-import { DumbbellIcon, ListIcon, PlusIcon } from "@/components/icons";
+import { DumbbellIcon, ListIcon, PlusIcon, StarIcon, PlayIcon } from "@/components/icons";
 import { todayISO, friendlyDate } from "@/lib/format";
 import {
   getActiveWorkout,
@@ -209,28 +209,38 @@ function PlanTab({
             Program: <span className="font-semibold text-[color:var(--color-brand-soft)]">{program.name}</span>
           </p>
           {days.map(({ day, exerciseNames }) => (
-            <div key={day.id} className="card overflow-hidden">
-              <div className="flex items-stretch gap-4">
-                <Photo
-                  src={heroImage(day.name, 300)}
-                  alt=""
-                  scrim="bottom"
-                  className="w-24 shrink-0 self-stretch"
-                />
-                <div className="min-w-0 flex-1 py-4 pr-4">
-                  <h3 className="font-display font-bold">{day.name}</h3>
-                  <p className="mt-0.5 truncate text-sm text-muted">
-                    {exerciseNames.length ? exerciseNames.join(" · ") : "No exercises"}
-                  </p>
-                  <Button
-                    block
-                    className="mt-3"
-                    disabled={starting || exerciseNames.length === 0}
-                    onClick={() => onStartDay(day)}
-                  >
-                    Start {day.name}
-                  </Button>
+            <div key={day.id} className="card-paper flex items-stretch overflow-hidden">
+              <div className="min-w-0 flex-1 p-4">
+                <h3 className="font-display text-lg font-bold tracking-tight">{day.name}</h3>
+                <div className="mt-1.5 flex items-center gap-1.5 text-sm text-muted">
+                  <DumbbellIcon className="h-4 w-4" style={{ color: "var(--color-brand)" }} />
+                  {exerciseNames.length
+                    ? `${exerciseNames.length} exercise${exerciseNames.length > 1 ? "s" : ""}`
+                    : "No exercises"}
                 </div>
+                {exerciseNames.length > 0 && (
+                  <p className="mt-1 truncate text-xs text-muted">{exerciseNames.join(" · ")}</p>
+                )}
+                <Button
+                  className="mt-3"
+                  disabled={starting || exerciseNames.length === 0}
+                  onClick={() => onStartDay(day)}
+                >
+                  <PlayIcon className="h-4 w-4" /> Start
+                </Button>
+              </div>
+              <div className="relative w-28 shrink-0 self-stretch">
+                <Photo
+                  src={heroImage(day.name, 320)}
+                  alt=""
+                  className="h-full w-full"
+                />
+                <span
+                  className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full"
+                  style={{ background: "var(--color-accent)", color: "var(--color-on-accent)" }}
+                >
+                  <StarIcon className="h-4 w-4" />
+                </span>
               </div>
             </div>
           ))}

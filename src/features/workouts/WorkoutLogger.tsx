@@ -506,7 +506,8 @@ function SessionHeader({
       <button
         onClick={onFinish}
         disabled={finishing}
-        className="mt-3 w-full rounded-xl bg-white/95 py-2.5 font-bold text-[color:var(--color-brand-strong)] transition active:scale-[0.98] disabled:opacity-70"
+        className="mt-3 w-full rounded-full py-3 font-bold tracking-wide transition active:scale-[0.98] disabled:opacity-70"
+        style={{ background: "var(--color-accent)", color: "var(--color-on-accent)" }}
       >
         {finishing ? "Wrapping up…" : "Finish workout"}
       </button>
@@ -654,7 +655,7 @@ function ExerciseLogCard({
               key={v}
               onClick={() => setRpe((cur) => (cur === v ? null : v))}
               aria-pressed={rpe === v}
-              className="h-8 flex-1 rounded-lg text-xs font-bold transition"
+              className="h-8 flex-1 rounded-full text-xs font-bold transition"
               style={{
                 background: rpe === v ? "var(--color-brand)" : "var(--color-surface-2)",
                 color: rpe === v ? "#fff" : "var(--color-muted)",
@@ -669,7 +670,7 @@ function ExerciseLogCard({
       <div className="mt-2 flex items-center gap-2">
         <button
           onClick={() => setWarmup((w) => !w)}
-          className="rounded-lg px-3 py-2 text-xs font-semibold"
+          className="rounded-full px-3 py-2 text-xs font-semibold"
           style={{
             background: warmup ? "var(--color-brand)" : "var(--color-surface-2)",
             color: warmup ? "#fff" : "var(--color-muted)",

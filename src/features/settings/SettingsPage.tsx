@@ -38,7 +38,7 @@ export function SettingsPage() {
 
       {/* Account */}
       <section className="card p-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Account</h2>
+        <h2 className="font-display text-base font-bold tracking-tight text-accent">Account</h2>
         <div className="mt-3 flex items-center gap-3">
           <div
             className="flex h-11 w-11 items-center justify-center rounded-full text-lg font-bold text-white"
@@ -64,7 +64,7 @@ export function SettingsPage() {
 
       {/* Units */}
       <section className="card space-y-3 p-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Units</h2>
+        <h2 className="font-display text-base font-bold tracking-tight text-accent">Units</h2>
         <div>
           <p className="mb-1.5 text-sm">Weight</p>
           <Segmented<WeightUnit>
@@ -91,7 +91,7 @@ export function SettingsPage() {
 
       {/* Appearance */}
       <section className="card space-y-3 p-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Appearance</h2>
+        <h2 className="font-display text-base font-bold tracking-tight text-accent">Appearance</h2>
         <Segmented<Theme>
           value={theme}
           onChange={setTheme}
@@ -111,7 +111,7 @@ export function SettingsPage() {
       {/* Workout */}
       <section className="card space-y-3 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Rest timer</h2>
+          <h2 className="font-display text-base font-bold tracking-tight text-accent">Rest timer</h2>
           <button
             onClick={() => {
               const next = !restOn;
@@ -159,7 +159,7 @@ export function SettingsPage() {
       {/* AI Coach */}
       <section className="card space-y-3 p-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-bold uppercase tracking-wide text-muted">AI coach</h2>
+          <h2 className="font-display text-base font-bold tracking-tight text-accent">AI coach</h2>
           <button
             onClick={() => updateProfile({ coach_enabled: !(profile?.coach_enabled ?? true) })}
             className="rounded-full px-3 py-1.5 text-xs font-bold"
@@ -245,7 +245,7 @@ export function SettingsPage() {
 
       {/* Data */}
       <section className="card space-y-3 p-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Your data</h2>
+        <h2 className="font-display text-base font-bold tracking-tight text-accent">Your data</h2>
         <p className="text-xs text-muted">
           Download everything you've logged — workouts, food, body metrics, photos — as
           a single JSON file. Your data, yours to keep.
@@ -278,14 +278,14 @@ export function SettingsPage() {
 
       {/* Setup status */}
       <section className="card p-4">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Setup status</h2>
+        <h2 className="font-display text-base font-bold tracking-tight text-accent">Setup status</h2>
         <ul className="mt-3 space-y-2 text-sm">
           <StatusRow ok={configured} label="Supabase backend" hint=".env.local URL + anon key" />
           <StatusRow ok={hasKey} label="Gemini AI coach" hint="Add your key above (optional)" />
         </ul>
       </section>
 
-      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.13.0</p>
+      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.13.0 · FitBody design</p>
     </div>
   );
 }

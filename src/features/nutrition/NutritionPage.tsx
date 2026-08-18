@@ -152,7 +152,10 @@ export function NutritionPage() {
           {/* Water */}
           <section className="card p-4">
             <div className="flex items-center justify-between">
-              <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted">
+              <h2
+                className="flex items-center gap-2 font-display text-lg font-bold tracking-tight"
+                style={{ color: "var(--color-accent)" }}
+              >
                 <DropletIcon className="h-4 w-4" style={{ color: "var(--color-water)" }} /> Water
               </h2>
               <span className="text-sm text-muted">
@@ -170,7 +173,7 @@ export function NutritionPage() {
                 <button
                   key={ml}
                   onClick={() => quickWater(ml)}
-                  className="flex flex-1 items-center justify-center gap-1 rounded-xl py-2.5 text-sm font-semibold"
+                  className="flex flex-1 items-center justify-center gap-1 rounded-full py-2.5 text-sm font-semibold"
                   style={{ background: "var(--color-surface-2)", color: "var(--color-water)" }}
                 >
                   <PlusIcon className="h-4 w-4" />
@@ -202,7 +205,12 @@ export function NutritionPage() {
           {/* Saved meals */}
           <section className="space-y-2">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Saved meals</h2>
+              <h2
+                className="font-display text-lg font-bold tracking-tight"
+                style={{ color: "var(--color-accent)" }}
+              >
+                Saved meals
+              </h2>
             </div>
             {meals.length === 0 ? (
               <p className="text-sm text-muted">

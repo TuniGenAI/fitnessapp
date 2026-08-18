@@ -43,12 +43,11 @@ export function AppShell() {
       <InstallPrompt />
 
       <nav
-        className="shrink-0 border-t"
+        className="shrink-0 rounded-t-[26px]"
         style={{
-          background: "color-mix(in srgb, var(--color-ink) 88%, transparent)",
-          borderColor: "var(--color-line)",
-          backdropFilter: "blur(12px)",
+          background: "var(--color-brand)",
           paddingBottom: "env(safe-area-inset-bottom)",
+          boxShadow: "0 -10px 30px -18px rgba(0,0,0,0.6)",
         }}
       >
         <div className="mx-auto flex max-w-lg items-stretch justify-around">
@@ -57,17 +56,23 @@ export function AppShell() {
               key={to}
               to={to}
               end={to === "/"}
-              className="group flex flex-1 flex-col items-center gap-1 py-2.5 text-muted"
+              className="group flex flex-1 flex-col items-center gap-1 py-3"
             >
               {({ isActive }) => (
                 <>
                   <Icon
                     className="h-6 w-6 transition-colors"
-                    style={isActive ? { color: "var(--color-brand)" } : undefined}
+                    style={{
+                      color: isActive ? "var(--color-accent)" : "#ffffff",
+                      opacity: isActive ? 1 : 0.8,
+                    }}
                   />
                   <span
-                    className="text-[10px] font-medium transition-colors"
-                    style={isActive ? { color: "var(--color-brand)" } : undefined}
+                    className="text-[10px] font-bold transition-colors"
+                    style={{
+                      color: isActive ? "var(--color-accent)" : "#ffffff",
+                      opacity: isActive ? 1 : 0.8,
+                    }}
                   >
                     {label}
                   </span>

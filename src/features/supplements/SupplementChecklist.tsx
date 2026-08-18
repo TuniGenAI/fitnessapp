@@ -67,7 +67,7 @@ export function SupplementChecklist({
   return (
     <section className="card p-4">
       <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted">
+        <h2 className="flex items-center gap-2 font-display text-base font-bold tracking-tight text-accent">
           <PillIcon className="h-4 w-4" style={{ color: "var(--color-fat)" }} /> Supplements
         </h2>
         <div className="flex items-center gap-2">

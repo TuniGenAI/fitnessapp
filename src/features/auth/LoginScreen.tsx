@@ -30,14 +30,14 @@ export function LoginScreen() {
       </div>
 
       <div className="mb-8 grid grid-cols-3 gap-3 text-center">
-        <Feature Icon={DumbbellIcon} label="Progressive overload" />
-        <Feature Icon={FlameIcon} label="Streaks & macros" />
-        <Feature Icon={TrophyIcon} label="PR celebrations" />
+        <Feature Icon={DumbbellIcon} label="Progressive overload" color="var(--color-brand)" />
+        <Feature Icon={FlameIcon} label="Streaks & macros" color="var(--color-flame)" />
+        <Feature Icon={TrophyIcon} label="PR celebrations" color="var(--color-accent)" />
       </div>
 
       <button
         onClick={signInWithGoogle}
-        className="flex w-full items-center justify-center gap-3 rounded-2xl bg-white py-3.5 font-semibold text-gray-800 shadow-lg transition active:scale-[0.98]"
+        className="flex w-full items-center justify-center gap-3 rounded-full bg-white py-3.5 font-bold text-gray-800 shadow-lg transition active:scale-[0.98]"
       >
         <GoogleIcon />
         Continue with Google
@@ -47,7 +47,7 @@ export function LoginScreen() {
         <>
           <button
             onClick={enterDemo}
-            className="mt-3 w-full rounded-2xl border py-3.5 font-medium text-muted transition active:scale-[0.98]"
+            className="mt-3 w-full rounded-full border py-3.5 font-bold text-muted transition active:scale-[0.98]"
             style={{ borderColor: "var(--color-line)" }}
           >
             Explore in demo mode
@@ -72,13 +72,15 @@ export function LoginScreen() {
 function Feature({
   Icon,
   label,
+  color,
 }: {
-  Icon: (p: { className?: string }) => JSX.Element;
+  Icon: (p: { className?: string; style?: React.CSSProperties }) => JSX.Element;
   label: string;
+  color?: string;
 }) {
   return (
     <div className="card flex flex-col items-center gap-2 p-3">
-      <Icon className="h-6 w-6" />
+      <Icon className="h-6 w-6" style={color ? { color } : undefined} />
       <span className="text-[11px] leading-tight text-muted">{label}</span>
     </div>
   );

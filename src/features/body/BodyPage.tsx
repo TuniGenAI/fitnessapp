@@ -119,7 +119,7 @@ export function BodyPage() {
 
           {/* History */}
           <section className="space-y-2">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted">History</h2>
+            <h2 className="font-display text-base font-bold tracking-tight text-accent">History</h2>
             {[...metrics].reverse().map((m) => (
               <div key={m.id} className="card flex items-center justify-between p-3">
                 <div>
@@ -250,7 +250,7 @@ function ProgressPhotos() {
   return (
     <section className="space-y-2">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Progress photos</h2>
+        <h2 className="font-display text-base font-bold tracking-tight text-accent">Progress photos</h2>
         <label className="cursor-pointer rounded-full px-3 py-1.5 text-xs font-bold"
           style={{ background: "var(--color-surface-2)", color: "var(--color-brand)" }}>
           <span className="inline-flex items-center gap-1">

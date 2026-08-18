@@ -16,12 +16,11 @@ import { friendlyDate, shiftISODate, todayISO } from "@/lib/format";
 
 type Variant = "primary" | "subtle" | "ghost" | "danger" | "accent";
 
+// FitBody buttons: fully-rounded pills. Violet is the workhorse; lime is the
+// standout "go / start" CTA and always carries black text.
 const VARIANT_STYLE: Record<Variant, React.CSSProperties> = {
-  primary: {
-    background: "linear-gradient(135deg, var(--color-brand), var(--color-brand-strong))",
-    color: "#fff",
-  },
-  accent: { background: "var(--color-accent)", color: "#0b0f1a" },
+  primary: { background: "var(--color-brand)", color: "#fff" },
+  accent: { background: "var(--color-accent)", color: "var(--color-on-accent)" },
   subtle: { background: "var(--color-surface-2)", color: "inherit" },
   ghost: { background: "transparent", color: "var(--color-muted)" },
   danger: { background: "var(--color-surface-2)", color: "var(--color-protein)" },
@@ -43,7 +42,7 @@ export function Button({
   return (
     <button
       {...rest}
-      className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 ${
+      className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-bold tracking-wide transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 ${
         block ? "w-full" : ""
       } ${className}`}
       style={{ ...VARIANT_STYLE[variant], ...style }}
@@ -74,7 +73,12 @@ export function PageHeader({
             <Icon className="h-6 w-6" />
           </div>
         )}
-        <h1 className="font-display text-2xl font-bold tracking-tight">{title}</h1>
+        <h1
+          className="font-display text-3xl font-extrabold tracking-tight"
+          style={{ color: "var(--color-brand)" }}
+        >
+          {title}
+        </h1>
       </div>
       {action}
     </header>
@@ -198,7 +202,7 @@ export function Segmented<T extends string>({
 }) {
   return (
     <div
-      className="flex gap-1 rounded-xl p-1"
+      className="flex gap-1 rounded-full p-1"
       style={{ background: "var(--color-surface-2)" }}
     >
       {options.map((o) => {
@@ -207,10 +211,10 @@ export function Segmented<T extends string>({
           <button
             key={o.value}
             onClick={() => onChange(o.value)}
-            className="flex-1 rounded-lg py-2 text-sm font-semibold transition"
+            className="flex-1 rounded-full py-2 text-sm font-bold transition"
             style={
               active
-                ? { background: "var(--color-brand)", color: "#fff" }
+                ? { background: "var(--color-accent)", color: "var(--color-on-accent)" }
                 : { color: "var(--color-muted)" }
             }
           >

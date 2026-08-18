@@ -58,7 +58,7 @@ export function ExerciseProgress() {
   return (
     <div className="space-y-4">
       <MuscleVolumeChart unit={unit} />
-      <p className="text-sm font-bold uppercase tracking-wide text-muted">Per exercise</p>
+      <p className="font-display text-base font-bold tracking-tight text-accent">Per exercise</p>
       <div className="flex flex-wrap gap-1.5">
         {trained.map((e) => (
           <button
@@ -109,7 +109,7 @@ function MuscleVolumeChart({ unit }: { unit: "kg" | "lb" }) {
 
   return (
     <div className="card p-4">
-      <p className="mb-2 text-sm font-bold uppercase tracking-wide text-muted">
+      <p className="mb-2 font-display text-base font-bold tracking-tight text-accent">
         Volume by muscle · last 30 days ({unit})
       </p>
       <ResponsiveContainer width="100%" height={Math.max(140, data.length * 34)}>
@@ -188,7 +188,7 @@ function ExerciseChart({
   return (
     <div className="space-y-3">
       <div className="card p-4">
-        <p className="mb-2 text-sm font-bold uppercase tracking-wide text-muted">
+        <p className="mb-2 font-display text-base font-bold tracking-tight text-accent">
           Estimated 1RM ({unit})
         </p>
         {data.length < 2 ? (
@@ -235,7 +235,7 @@ function ExerciseChart({
       </div>
 
       <div className="card p-4">
-        <p className="mb-2 flex items-center gap-2 text-sm font-bold uppercase tracking-wide text-muted">
+        <p className="mb-2 flex items-center gap-2 font-display text-base font-bold tracking-tight text-accent">
           <TrophyIcon className="h-4 w-4" style={{ color: "var(--color-accent)" }} /> Records
         </p>
         <div className="grid grid-cols-3 gap-2">

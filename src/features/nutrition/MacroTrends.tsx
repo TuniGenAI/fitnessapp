@@ -35,7 +35,7 @@ export default function MacroTrends({
 
   return (
     <section className="card p-4">
-      <p className="mb-2 text-sm font-bold uppercase tracking-wide text-muted">
+      <p className="mb-2 font-display text-base font-bold tracking-tight text-accent">
         Calories · last 7 days
       </p>
       <ResponsiveContainer width="100%" height={170}>

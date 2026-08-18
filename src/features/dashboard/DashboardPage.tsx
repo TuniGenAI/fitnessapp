@@ -184,8 +184,13 @@ export function DashboardPage() {
       {/* Greeting */}
       <header className="flex items-center justify-between">
         <div>
-          <p className="text-sm text-muted">{greeting()},</p>
-          <h1 className="font-display text-2xl font-bold tracking-tight">{firstName} 👋</h1>
+          <h1
+            className="font-display text-3xl font-extrabold tracking-tight"
+            style={{ color: "var(--color-brand)" }}
+          >
+            Hi, {firstName}
+          </h1>
+          <p className="mt-0.5 text-sm text-muted">{greeting()} — time to challenge your limits.</p>
         </div>
         <div
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold"
@@ -302,7 +307,8 @@ export function DashboardPage() {
               </div>
               <button
                 onClick={() => navigate("/workouts")}
-                className="mt-4 w-full rounded-xl bg-white/95 py-3 font-bold text-[color:var(--color-brand-strong)] transition active:scale-[0.98]"
+                className="mt-4 w-full rounded-full py-3.5 font-bold tracking-wide transition active:scale-[0.98]"
+                style={{ background: "var(--color-accent)", color: "var(--color-on-accent)" }}
               >
                 {active ? "Resume workout" : session ? "Go to workout" : "Build a program"}
               </button>
@@ -334,7 +340,7 @@ export function DashboardPage() {
             onClick={() => quickWater(-250)}
             disabled={water <= 0}
             aria-label="Remove 250ml"
-            className="flex items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
+            className="flex items-center justify-center rounded-full px-4 py-2.5 text-sm font-semibold disabled:opacity-40"
             style={{ background: "var(--color-surface-2)", color: "var(--color-muted)" }}
           >
             <MinusIcon className="h-4 w-4" />
@@ -343,7 +349,7 @@ export function DashboardPage() {
             <button
               key={ml}
               onClick={() => quickWater(ml)}
-              className="flex flex-1 items-center justify-center gap-1 rounded-xl py-2.5 text-sm font-semibold"
+              className="flex flex-1 items-center justify-center gap-1 rounded-full py-2.5 text-sm font-semibold"
               style={{ background: "var(--color-surface-2)", color: "var(--color-water)" }}
             >
               <PlusIcon className="h-4 w-4" />
@@ -403,7 +409,14 @@ function greeting() {
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="text-sm font-bold uppercase tracking-wide text-muted">{children}</h2>;
+  return (
+    <h2
+      className="font-display text-lg font-bold tracking-tight"
+      style={{ color: "var(--color-accent)" }}
+    >
+      {children}
+    </h2>
+  );
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

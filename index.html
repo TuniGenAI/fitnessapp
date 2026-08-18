@@ -5,13 +5,14 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#0a0e17" />
+    <meta name="theme-color" content="#1e1e1e" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Fitness" />
     <title>Fitness App</title>
 
-    <!-- Type: Inter (body) + Space Grotesk (display numerals/headings).
+    <!-- Type: League Spartan (the whole FitBody kit runs on one geometric
+         display family — Bold headings, Light body).
          Loaded non-render-blocking: the stylesheet is fetched as a preload and
          swapped to `rel=stylesheet` on load, so first paint never waits on a
          round-trip to Google Fonts. Degrades to system fonts until it lands
@@ -23,13 +24,13 @@
     <link
       rel="preload"
       as="style"
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700;800;900&display=swap"
       onload="this.onload=null;this.rel='stylesheet'"
     />
     <noscript>
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap"
+        href="https://fonts.googleapis.com/css2?family=League+Spartan:wght@300;400;500;600;700;800;900&display=swap"
       />
     </noscript>
 
@@ -47,7 +48,7 @@
           r.classList.toggle("dark", dark);
           r.classList.toggle("light", !dark);
           var m = document.querySelector('meta[name="theme-color"]');
-          if (m) m.setAttribute("content", dark ? "#0a0e17" : "#eaf1f8");
+          if (m) m.setAttribute("content", dark ? "#1e1e1e" : "#f3f2f7");
         } catch (e) {}
       })();
     </script>
