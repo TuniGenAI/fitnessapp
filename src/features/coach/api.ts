@@ -20,7 +20,10 @@ interface CoachResponse {
   error?: string;
 }
 
-async function tryGemini(kind: "briefing" | "recap", body: unknown): Promise<string | null> {
+async function tryGemini(
+  kind: "briefing" | "recap" | "reaction",
+  body: unknown,
+): Promise<string | null> {
   if (!usingBackend() || !supabase) return null;
   try {
     const { data, error } = await supabase.functions.invoke<CoachResponse>("coach", {
@@ -128,6 +131,16 @@ export async function getRecap(
     if (ai) return { text: ai, ai: true };
   }
   return { text: buildRecap(ctx), ai: false };
+}
+
+/**
+ * AI reaction to a single just-logged set (per-set reactions mode). `summary` is
+ * a compact one-liner the caller builds with the real numbers. Returns null on
+ * any failure — the caller shows an instant rule-based line first and upgrades to
+ * this when it lands, so a slow call or a transient 503 never blocks logging.
+ */
+export async function getReaction(summary: string): Promise<string | null> {
+  return tryGemini("reaction", { summary });
 }
 
 /** Best-effort persistence of a coach message (non-fatal on failure). */

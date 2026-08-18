@@ -55,7 +55,7 @@ function buildPrompt(req: CoachRequest): string {
     );
   } else {
     lines.push(
-      "You are an upbeat strength coach. React to the set just completed in ONE short sentence.",
+      "You are an upbeat, specific strength coach. React to the set just completed in ONE short sentence (no markdown, no emoji spam). Drive progressive overload using the ACTUAL numbers: if they fell short of the top of the rep range, nudge one more rep or a small load bump next set; if they hit or beat it, tell them to add load next time. Reference the real reps/weight — never generic filler like \"keep going\".",
     );
   }
   if (req.dayName) lines.push(`Session: ${req.dayName}.`);

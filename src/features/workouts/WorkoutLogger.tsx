@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   Exercise,
   Workout,
@@ -41,7 +41,7 @@ import {
   type TargetSuggestion,
 } from "./logic";
 import { ExercisePicker } from "./ExercisePicker";
-import { getRecap, saveCoachMessage } from "@/features/coach/api";
+import { getRecap, getReaction, saveCoachMessage } from "@/features/coach/api";
 import { reactionForSet } from "@/features/coach/logic";
 import {
   restTimerOn,
@@ -83,6 +83,9 @@ export function WorkoutLogger({
   // Which exercise is mid-log (locks the button so a double-tap can't create
   // duplicate sets while the insert is in flight).
   const [loggingId, setLoggingId] = useState<string | null>(null);
+  // Monotonic token so a late AI reaction from an earlier set can't overwrite a
+  // newer set's toast.
+  const reactionToken = useRef(0);
 
   function flashToast(msg: string) {
     setToast(msg);
@@ -195,6 +198,7 @@ export function WorkoutLogger({
         const beatLastTime = lastBest
           ? estimatedOneRepMax(weightKg, reps) > estimatedOneRepMax(lastBest.weight_kg, lastBest.reps)
           : false;
+        // Instant rule-based line so feedback never lags the tap…
         flashToast(
           reactionForSet({
             isPr: false,
@@ -203,6 +207,29 @@ export function WorkoutLogger({
             targetHigh: entry.target?.target_reps_high,
           }),
         );
+        // …then upgrade to a specific AI reaction when it lands (full per-set AI
+        // mode). Non-blocking; a slow call or a transient 503 just leaves the
+        // rule line in place. Guarded by a token so a stale reaction from an
+        // earlier set can't clobber a newer toast.
+        const token = ++reactionToken.current;
+        const targetTxt = entry.target
+          ? `target ${entry.target.target_reps_low}–${entry.target.target_reps_high} reps`
+          : "no set target";
+        const lastTxt = lastBest
+          ? `last time ${formatWeight(lastBest.weight_kg, unit)} × ${lastBest.reps}`
+          : "no prior data";
+        const rpeTxt = rpe != null ? `, RPE ${rpe}` : "";
+        const summary = `Set just completed on ${entry.exercise.name}: ${formatWeight(
+          weightKg,
+          unit,
+        )} × ${reps}${rpeTxt} (${targetTxt}, ${lastTxt}). Coach toward progressive overload with the real numbers.`;
+        getReaction(summary)
+          .then((ai) => {
+            if (ai && token === reactionToken.current) flashToast(ai);
+          })
+          .catch(() => {
+            /* keep the rule line */
+          });
       }
     } catch {
       flashToast("Couldn't log that set — check your connection and try again.");
