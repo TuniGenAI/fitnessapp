@@ -42,7 +42,7 @@ export function Button({
   return (
     <button
       {...rest}
-      className={`inline-flex items-center justify-center gap-2 rounded-full px-5 py-3.5 text-sm font-bold tracking-wide transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 ${
+      className={`inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 py-3.5 text-sm font-bold tracking-wide transition active:scale-[0.98] disabled:opacity-50 disabled:active:scale-100 ${
         block ? "w-full" : ""
       } ${className}`}
       style={{ ...VARIANT_STYLE[variant], ...style }}
