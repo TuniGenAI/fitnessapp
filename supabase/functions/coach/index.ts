@@ -85,28 +85,49 @@ Deno.serve(async (request: Request) => {
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     const authHeader = request.headers.get("Authorization") ?? "";
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-      { global: { headers: { Authorization: authHeader } } },
-    );
+    const url = Deno.env.get("SUPABASE_URL")!;
 
+    // 1) Authenticate the caller with THEIR token (just to learn who they are).
+    const authClient = createClient(url, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } },
+    });
     const {
       data: { user },
-    } = await supabase.auth.getUser();
+    } = await authClient.auth.getUser();
     if (!user) {
       return json({ error: "unauthorized" }, 401);
     }
 
-    // Read the caller's own key (RLS scopes this to their profile).
-    const { data: profile } = await supabase
+    // 2) Read the caller's OWN key with the service role. Reading via the
+    //    forwarded user JWT was unreliable here — when the token didn't reach
+    //    PostgREST the RLS'd SELECT returned nothing, so a saved key looked
+    //    absent and the coach silently fell back to rule-based ("AI didn't
+    //    fire: no key on the server"). The service role bypasses RLS; we still
+    //    scope the read to `user.id`, so a caller can only ever get their own
+    //    key. The service-role secret never leaves the server.
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    if (!serviceKey) {
+      return json({ fallback: true, error: "server misconfigured: no SUPABASE_SERVICE_ROLE_KEY" });
+    }
+    const admin = createClient(url, serviceKey);
+    const { data: profile, error: readErr } = await admin
       .from("profiles")
       .select("gemini_api_key")
       .eq("id", user.id)
       .maybeSingle();
+    if (readErr) {
+      return json({ fallback: true, error: `profiles read failed: ${readErr.message}` });
+    }
 
     const key = profile?.gemini_api_key ?? Deno.env.get("GEMINI_API_KEY");
-    if (!key) return json({ fallback: true });
+    if (!key) {
+      return json({
+        fallback: true,
+        error: profile
+          ? "profiles row found but gemini_api_key is empty — re-save your key in Settings"
+          : "no profiles row for this user",
+      });
+    }
 
     const body = (await request.json()) as CoachRequest;
     const prompt = buildPrompt(body);
