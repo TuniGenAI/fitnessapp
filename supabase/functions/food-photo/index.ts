@@ -28,6 +28,15 @@ const PROMPT =
   'fences: {"name":string,"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number}. ' +
   "Use grams for macros and total kcal for the whole visible portion.";
 
+// The user can add a free-text hint about what's actually in the photo (the
+// camera often can't tell chicken from turkey, or that a sauce is included).
+// Trust the note to resolve ambiguity, but still read quantities/portion from
+// the image unless the note overrides them.
+const NOTE_PREFIX =
+  "\n\nThe user describes what's in the photo — treat this as authoritative for " +
+  "identifying the food and any hidden ingredients, and use it to correct what the " +
+  "image alone would suggest:\n";
+
 function json(obj: unknown, status = 200): Response {
   return new Response(JSON.stringify(obj), {
     status,
@@ -57,11 +66,15 @@ Deno.serve(async (request: Request) => {
     const key = profile?.gemini_api_key ?? Deno.env.get("GEMINI_API_KEY");
     if (!key) return json({ fallback: true });
 
-    const { imageBase64, mimeType } = (await request.json()) as {
+    const { imageBase64, mimeType, note } = (await request.json()) as {
       imageBase64: string;
       mimeType?: string;
+      note?: string;
     };
     if (!imageBase64) return json({ error: "no image" }, 400);
+
+    const promptText =
+      note && note.trim() ? PROMPT + NOTE_PREFIX + note.trim() : PROMPT;
 
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${key}`,
@@ -72,7 +85,7 @@ Deno.serve(async (request: Request) => {
           contents: [
             {
               parts: [
-                { text: PROMPT },
+                { text: promptText },
                 { inline_data: { mime_type: mimeType ?? "image/jpeg", data: imageBase64 } },
               ],
             },

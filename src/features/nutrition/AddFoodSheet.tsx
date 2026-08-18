@@ -529,6 +529,12 @@ async function fileToBase64(file: File): Promise<{ base64: string; mime: string 
 function PhotoTab({ onPick }: { onPick: (s: Selectable) => void }) {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  // Optional hint the camera can't infer (e.g. "grilled chicken, not turkey",
+  // "cooked in 1 tbsp olive oil"). Typed BEFORE picking the photo so it's sent
+  // with the scan. Kept in a ref too so the file-input onChange always reads the
+  // latest value even though it fires outside React's render.
+  const [note, setNote] = useState("");
+  const noteRef = useRef("");
 
   async function onFile(file: File | undefined) {
     if (!file) return;
@@ -536,7 +542,7 @@ function PhotoTab({ onPick }: { onPick: (s: Selectable) => void }) {
     setMsg(null);
     try {
       const { base64, mime } = await fileToBase64(file);
-      const food = await scanFoodPhoto(base64, mime);
+      const food = await scanFoodPhoto(base64, mime, noteRef.current.trim() || undefined);
       if (!food) {
         setMsg(
           "Photo scan needs the food-photo function deployed + a Gemini key in Settings (live app only). Meanwhile, use Search or Custom.",
@@ -552,6 +558,7 @@ function PhotoTab({ onPick }: { onPick: (s: Selectable) => void }) {
           fat_g: food.fat_g,
         },
         servingLabel: "1 photo portion",
+        editableName: true,
       });
     } catch (e) {
       setMsg(String((e as Error).message));
@@ -562,6 +569,22 @@ function PhotoTab({ onPick }: { onPick: (s: Selectable) => void }) {
 
   return (
     <div className="space-y-3">
+      <div>
+        <p className="mb-1.5 text-xs font-semibold text-muted">
+          Description <span className="font-normal">(optional — helps the AI)</span>
+        </p>
+        <textarea
+          value={note}
+          onChange={(e) => {
+            setNote(e.target.value);
+            noteRef.current = e.target.value;
+          }}
+          rows={2}
+          placeholder="e.g. “grilled chicken breast, not turkey — cooked in olive oil”"
+          className="w-full resize-none rounded-xl px-3 py-2.5 text-sm outline-none"
+          style={{ background: "var(--color-surface-2)" }}
+        />
+      </div>
       <label
         className="flex cursor-pointer flex-col items-center gap-2 rounded-xl border border-dashed p-6 text-center"
         style={{ borderColor: "var(--color-line)" }}
@@ -569,7 +592,8 @@ function PhotoTab({ onPick }: { onPick: (s: Selectable) => void }) {
         <CameraIcon className="h-8 w-8" style={{ color: "var(--color-brand)" }} />
         <span className="text-sm font-semibold">Snap or choose a food photo</span>
         <span className="text-xs text-muted">
-          Gemini estimates the macros; you confirm before logging.
+          Add a note above first if the photo is ambiguous, then Gemini estimates the
+          macros — you confirm before logging.
         </span>
         <input
           type="file"

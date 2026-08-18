@@ -376,13 +376,14 @@ export interface PhotoFood {
 export async function scanFoodPhoto(
   imageBase64: string,
   mimeType: string,
+  note?: string,
 ): Promise<PhotoFood | null> {
   if (!usingBackend() || !supabase) return null;
   const { data, error } = await supabase.functions.invoke<{
     food?: PhotoFood;
     fallback?: boolean;
     error?: string;
-  }>("food-photo", { body: { imageBase64, mimeType } });
+  }>("food-photo", { body: { imageBase64, mimeType, note } });
   if (error) throw new Error(`Couldn't reach the food-photo function (${error.message}).`);
   if (data?.food) return data.food;
   // The function ran but Gemini rejected the request — surface the real reason
