@@ -8,6 +8,15 @@
 
 ## Where we are
 
+> **📸 Meal-photo description (2026-08-18, app v0.12.2) — DEPLOYED.** The photo AI often misread a
+> picture's contents (chicken vs turkey, hidden oil/sauce). The **Photo** tab (`AddFoodSheet.tsx`) now
+> has an **optional Description field** above the picker; the note is sent with the image and
+> `scanFoodPhoto(base64, mime, note)` → the **`food-photo`** edge function folds it into the prompt as
+> *authoritative* for identifying the food (still reads portion from the image unless the note overrides).
+> The AI's guessed name is now **editable** in the confirm step too. Frontend-only + `food-photo`
+> redeploy — both shipped (commit `8183995`, `food-photo` redeployed & 401-verified). `npm run build`
+> green; demo-mode UI verified (field renders, typing works, no console errors).
+
 > **🔧 Barcode + AI reliability fixes (2026-08-18, app v0.12.1).** Owner reported: barcode camera
 > "doesn't scan", and most AI features "don't work / die on load / take too long." Two root causes,
 > both fixed in code:
