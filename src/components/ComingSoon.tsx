@@ -27,7 +27,7 @@ export function ComingSoon({ title, milestone, Icon, bullets }: ComingSoonProps)
       >
         <span
           className="inline-block rounded-full px-2.5 py-1 text-xs font-bold"
-          style={{ background: "var(--color-surface-2)", color: "var(--color-accent)" }}
+          style={{ background: "var(--color-surface-2)", color: "var(--color-accent-text)" }}
         >
           {milestone}
         </span>

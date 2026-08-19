@@ -53,7 +53,7 @@ export async function updateProfile(patch: ProfileUpdate): Promise<Profile | nul
       if (error) throw error;
       if (!data)
         throw new Error(
-          "Update saved 0 rows — a row-level security policy is blocking updates on 'profiles'.",
+          "Update saved 0 rows. A row-level security policy is blocking updates on 'profiles'.",
         );
       return data;
     }
@@ -113,7 +113,7 @@ export async function updateGoals(patch: GoalsUpdate): Promise<Goals | null> {
       if (error) throw error;
       if (!data)
         throw new Error(
-          "Update saved 0 rows — a row-level security policy is blocking updates on 'goals'.",
+          "Update saved 0 rows. A row-level security policy is blocking updates on 'goals'.",
         );
       return data;
     }

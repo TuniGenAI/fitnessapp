@@ -215,7 +215,7 @@ function RecentTab({
   if (recents.length === 0)
     return (
       <p className="text-sm text-muted">
-        Nothing logged yet. Add a food via Search or Custom — it'll show here for
+        Nothing logged yet. Add a food via Search or Custom and it'll show here for
         one-tap re-logging next time.
       </p>
     );
@@ -335,18 +335,18 @@ function SearchTab({ onPick }: { onPick: (s: Selectable) => void }) {
       </form>
 
       {loading && <Spinner />}
-      {err && <p className="text-sm" style={{ color: "var(--color-protein)" }}>{err}</p>}
+      {err && <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>{err}</p>}
       {!loading && searched && results.length === 0 && !err && (
         <div className="space-y-2">
           <p className="text-sm text-muted">
-            No matches in Open Food Facts — common for whole foods and local dishes.
+            No matches in Open Food Facts, common for whole foods and local dishes.
           </p>
           <Button
             variant="subtle"
             block
             disabled={aiLoading}
             onClick={estimateWithAI}
-            style={{ color: "var(--color-accent)" }}
+            style={{ color: "var(--color-accent-text)" }}
           >
             {aiLoading ? "Estimating…" : `✨ Estimate "${q.trim()}" with AI`}
           </Button>
@@ -505,7 +505,7 @@ function BarcodeTab({ onPick }: { onPick: (s: Selectable) => void }) {
       </form>
       {loading && <Spinner />}
       {notFound && (
-        <p className="text-sm" style={{ color: "var(--color-protein)" }}>
+        <p className="text-sm" style={{ color: "var(--color-danger-text)" }}>
           No product for that barcode. Try search or a custom food.
         </p>
       )}
@@ -571,7 +571,7 @@ function PhotoTab({ onPick }: { onPick: (s: Selectable) => void }) {
     <div className="space-y-3">
       <div>
         <p className="mb-1.5 text-xs font-semibold text-muted">
-          Description <span className="font-normal">(optional — helps the AI)</span>
+          Description <span className="font-normal">(optional, helps the AI)</span>
         </p>
         <textarea
           value={note}
@@ -580,7 +580,7 @@ function PhotoTab({ onPick }: { onPick: (s: Selectable) => void }) {
             noteRef.current = e.target.value;
           }}
           rows={2}
-          placeholder="e.g. “grilled chicken breast, not turkey — cooked in olive oil”"
+          placeholder="e.g. “grilled chicken breast, not turkey, cooked in olive oil”"
           className="w-full resize-none rounded-xl px-3 py-2.5 text-sm outline-none"
           style={{ background: "var(--color-surface-2)" }}
         />
@@ -593,7 +593,7 @@ function PhotoTab({ onPick }: { onPick: (s: Selectable) => void }) {
         <span className="text-sm font-semibold">Snap or choose a food photo</span>
         <span className="text-xs text-muted">
           Add a note above first if the photo is ambiguous, then Gemini estimates the
-          macros — you confirm before logging.
+          macros and you confirm before logging.
         </span>
         <input
           type="file"
@@ -663,7 +663,7 @@ function DescribeTab({ onPick }: { onPick: (s: Selectable) => void }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={3}
-          placeholder="Describe your meal — e.g. “2 scrambled eggs, 2 toast with butter, a banana, black coffee”"
+          placeholder="Describe your meal, e.g. “2 scrambled eggs, 2 toast with butter, a banana, black coffee”"
           className="w-full resize-none rounded-xl px-3 py-2.5 text-sm outline-none"
           style={{ background: "var(--color-surface-2)" }}
         />

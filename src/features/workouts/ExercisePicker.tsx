@@ -191,7 +191,7 @@ function ExerciseForm({
       await deleteExercise(existing.id);
       onDeleted();
     } catch {
-      setError("Can't delete — this exercise is used in a program or logged set.");
+      setError("Can't delete. This exercise is used in a program or logged set.");
       setDeleting(false);
     }
   }

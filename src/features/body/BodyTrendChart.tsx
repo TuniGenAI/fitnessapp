@@ -45,6 +45,7 @@ export default function BodyTrendChart({
               fontSize: 12,
             }}
             labelStyle={{ color: "var(--color-muted)" }}
+            itemStyle={{ color: "var(--color-text)" }}
           />
           <Line
             type="monotone"
@@ -65,7 +66,7 @@ export default function BodyTrendChart({
         </LineChart>
       </ResponsiveContainer>
       <p className="mt-1 text-center text-xs text-muted">
-        The bold line is your smoothed trend — that's the number that matters, not daily noise.
+        The bold line is your smoothed trend, the number that matters, not daily noise.
       </p>
     </section>
   );

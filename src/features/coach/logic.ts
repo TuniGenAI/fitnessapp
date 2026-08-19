@@ -44,13 +44,13 @@ export function buildBriefing(ctx: BriefingContext): string {
   const withSuggestion = ctx.exercises.find((e) => e.suggestion);
   let focus = "";
   if (withSuggestion?.suggestion) {
-    focus = ` Chase ${withSuggestion.suggestion} on ${withSuggestion.name} — that's your progression target.`;
+    focus = ` Chase ${withSuggestion.suggestion} on ${withSuggestion.name}, your progression target.`;
   } else if (ctx.exercises[0]) {
     focus = ` Bring solid form to ${ctx.exercises[0].name} and log every set.`;
   }
 
   const count = ctx.exercises.length;
-  return `${opener}${name}. ${ctx.dayName} today — ${count} ${
+  return `${opener}${name}. ${ctx.dayName} today, ${count} ${
     count === 1 ? "exercise" : "exercises"
   } on the plan.${focus}`;
 }
@@ -76,13 +76,13 @@ export function buildRecap(ctx: RecapContext): string {
   // Don't celebrate an empty session. If nothing was actually lifted, say so
   // plainly instead of congratulating "0 kg moved".
   if (ctx.workingSets === 0 || ctx.totalVolumeKg === 0) {
-    return "No working sets logged this session — nothing to bank yet. Tap the green “Log set” button after each set, then finish, and I'll track your progress.";
+    return "No working sets logged this session, nothing to bank yet. Tap the green “Log set” button after each set, then finish, and I'll track your progress.";
   }
   const seed = daySeed() + ctx.workingSets;
   const win = pick(RECAP_WINS, seed);
   const pr =
     ctx.prCount > 0
-      ? ` You set ${ctx.prCount} new ${ctx.prCount === 1 ? "PR" : "PRs"} — momentum is real.`
+      ? ` You set ${ctx.prCount} new ${ctx.prCount === 1 ? "PR" : "PRs"}. Momentum is real.`
       : "";
   const top = ctx.topExercise
     ? ` Top effort: ${ctx.topExercise.name} at ${ctx.topExercise.best}.`
@@ -90,11 +90,11 @@ export function buildRecap(ctx: RecapContext): string {
   const next =
     ctx.prCount > 0
       ? " Next time, try to add a rep or a little load and keep the streak alive."
-      : " Next time, aim to beat one number from today — one more rep or 2.5 kg.";
+      : " Next time, aim to beat one number from today: one more rep or 2.5 kg.";
   // Cross-session continuity: acknowledge the week's consistency (ROADMAP #10).
   const week =
     ctx.trainedThisWeek && ctx.trainedThisWeek >= 2
-      ? ` That's ${ctx.trainedThisWeek} sessions banked this week — consistency is compounding.`
+      ? ` That's ${ctx.trainedThisWeek} sessions banked this week. Consistency is compounding.`
       : "";
   return `${win}: ${ctx.workingSets} working sets, ${Math.round(
     ctx.totalVolumeKg,
@@ -110,7 +110,7 @@ export function reactionForSet(opts: {
 }): string {
   if (opts.isPr) return pick(["New PR! 🔥", "Record broken! 🏆", "That's a lifetime best!"], opts.reps);
   if (opts.targetHigh && opts.reps >= opts.targetHigh)
-    return pick(["Top of the range — add load next set.", "Rep target smashed."], opts.reps);
-  if (opts.beatLastTime) return "Up from last time — keep building.";
-  return pick(["Clean set.", "Logged — keep the pace.", "Nice, on to the next."], opts.reps);
+    return pick(["Top of the range. Add load next set.", "Rep target smashed."], opts.reps);
+  if (opts.beatLastTime) return "Up from last time. Keep building.";
+  return pick(["Clean set.", "Logged. Keep the pace.", "Nice, on to the next."], opts.reps);
 }

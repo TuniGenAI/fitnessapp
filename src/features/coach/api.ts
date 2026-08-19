@@ -63,7 +63,7 @@ export async function testCoachAI(): Promise<CoachAiTest> {
   if (!usingBackend() || !supabase) {
     return {
       ok: false,
-      detail: "You're in demo mode (not signed in to the backend) — the AI coach only runs for a signed-in account.",
+      detail: "You're in demo mode (not signed in to the backend). The AI coach only runs for a signed-in account.",
     };
   }
   try {
@@ -81,7 +81,7 @@ export async function testCoachAI(): Promise<CoachAiTest> {
     if (data.fallback)
       return {
         ok: false,
-        detail: "Function ran but found no Gemini key on the server — your saved key isn't reaching the profiles row.",
+        detail: "Function ran but found no Gemini key on the server. Your saved key isn't reaching the profiles row.",
       };
     return { ok: false, detail: "Empty response from the coach function." };
   } catch (e) {

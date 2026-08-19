@@ -216,7 +216,7 @@ export function ProgramBuilder({
                 await loadDays(pick);
               }}
               className="flex h-8 w-8 items-center justify-center rounded-full"
-              style={{ background: "var(--color-surface-2)", color: "var(--color-protein)" }}
+              style={{ background: "var(--color-surface-2)", color: "var(--color-danger-text)" }}
               aria-label="Delete program"
             >
               <TrashIcon className="h-4 w-4" />
@@ -230,7 +230,7 @@ export function ProgramBuilder({
         <EmptyState
           Icon={DumbbellIcon}
           title="No training days yet"
-          hint="Add a day like Push, Pull, or Legs — then fill it with exercises."
+          hint="Add a day like Push, Pull, or Legs, then fill it with exercises."
         />
       )}
 

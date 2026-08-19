@@ -183,7 +183,7 @@ export function DashboardPage() {
           >
             Hi, {firstName}
           </h1>
-          <p className="mt-0.5 text-sm text-muted">{greeting()} — time to challenge your limits.</p>
+          <p className="mt-0.5 text-sm text-muted">{greeting()}. Time to challenge your limits.</p>
         </div>
         <div
           className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-bold"
@@ -225,9 +225,9 @@ export function DashboardPage() {
       <section className="card-2 flex items-center justify-around p-3">
         <Stat label="Trained" value={`${trainedThisWeek} / wk`} />
         <Divider />
-        <Stat label="Calories" value={hasGoals ? `${Math.round(totals.calories)}` : "—"} />
+        <Stat label="Calories" value={hasGoals ? `${Math.round(totals.calories)}` : "–"} />
         <Divider />
-        <Stat label="Macros" value={macroPct != null ? `${macroPct}%` : "—"} />
+        <Stat label="Macros" value={macroPct != null ? `${macroPct}%` : "–"} />
       </section>
 
       {/* Macro rings */}
@@ -376,7 +376,7 @@ function computeNudge(s: {
 }): Nudge | null {
   // A workout already in progress — nudge to resume it.
   if (s.hasActiveWorkout) {
-    return { text: "You've got a workout in progress — jump back in and finish strong.", emoji: "🏋️", href: "/workouts" };
+    return { text: "You've got a workout in progress. Jump back in and finish strong.", emoji: "🏋️", href: "/workouts" };
   }
   // Nothing eaten yet, but goals are set — prompt to start logging.
   if (s.hasGoals && s.calories === 0) {
@@ -385,7 +385,7 @@ function computeNudge(s: {
   // Behind on protein in the afternoon/evening.
   if (s.hasGoals && s.proteinGoal > 0 && s.hour >= 15 && s.protein < s.proteinGoal * 0.5) {
     const left = Math.round(s.proteinGoal - s.protein);
-    return { text: `You're behind on protein — about ${left} g to go. Plan the rest of your day on Fuel.`, emoji: "💪", href: "/nutrition" };
+    return { text: `You're behind on protein, about ${left} g to go. Plan the rest of your day on Fuel.`, emoji: "💪", href: "/nutrition" };
   }
   // A session is planned and untouched — nudge to train.
   if (s.session && s.session.exerciseNames.length > 0) {
@@ -405,7 +405,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2
       className="font-display text-lg font-bold tracking-tight"
-      style={{ color: "var(--color-accent)" }}
+      style={{ color: "var(--color-accent-text)" }}
     >
       {children}
     </h2>

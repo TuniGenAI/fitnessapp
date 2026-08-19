@@ -23,7 +23,7 @@ const VARIANT_STYLE: Record<Variant, React.CSSProperties> = {
   accent: { background: "var(--color-accent)", color: "var(--color-on-accent)" },
   subtle: { background: "var(--color-surface-2)", color: "inherit" },
   ghost: { background: "transparent", color: "var(--color-muted)" },
-  danger: { background: "var(--color-surface-2)", color: "var(--color-protein)" },
+  danger: { background: "var(--color-surface-2)", color: "var(--color-danger-text)" },
 };
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

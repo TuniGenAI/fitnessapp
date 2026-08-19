@@ -74,11 +74,11 @@ export function suggestNextTarget(
     const steps = topRpe != null && topRpe <= 6 ? 2 : 1;
     const weightKg = roundTo(topWeight + inc * steps, inc);
     const added = trim(toDisplayWeight(inc * steps, unit));
-    const easy = steps === 2 ? " — that was easy, bigger jump" : "";
+    const easy = steps === 2 ? " (that was easy, bigger jump)" : "";
     return {
       weightKg,
       reps: repLow,
-      reason: `Hit ${repHigh} reps${rpeNote} last time — add ${added} ${unit}${easy}`,
+      reason: `Hit ${repHigh} reps${rpeNote} last time. Add ${added} ${unit}${easy}`,
     };
   }
 
@@ -89,7 +89,7 @@ export function suggestNextTarget(
     return {
       weightKg: topWeight,
       reps,
-      reason: `Near failure${rpeNote} last time — hold and own this weight for ${reps}`,
+      reason: `Near failure${rpeNote} last time. Hold and own this weight for ${reps}`,
     };
   }
   return {
@@ -131,7 +131,7 @@ export function deloadTarget(
   return {
     weightKg,
     reps: repHigh,
-    reason: `Stalled 3 sessions — deload ${off} ${unit} and rebuild with clean reps`,
+    reason: `Stalled 3 sessions. Deload ${off} ${unit} and rebuild with clean reps`,
   };
 }
 

@@ -154,7 +154,7 @@ function WorkoutDetail({
           onDeleted();
         }}
         className="flex items-center gap-1.5 text-xs font-semibold"
-        style={{ color: "var(--color-protein)" }}
+        style={{ color: "var(--color-danger-text)" }}
       >
         <TrashIcon className="h-3.5 w-3.5" /> Delete workout
       </button>

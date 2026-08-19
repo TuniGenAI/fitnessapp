@@ -85,7 +85,7 @@ export function BodyPage() {
             <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <StatCard
                 label="Weight"
-                value={latest.weight_kg != null ? formatWeight(latest.weight_kg, unit) : "—"}
+                value={latest.weight_kg != null ? formatWeight(latest.weight_kg, unit) : "–"}
                 color="var(--color-brand)"
               />
               <StatCard label="Body fat" value={pct(latest.body_fat_pct)} color="var(--color-protein)" />
@@ -124,7 +124,7 @@ export function BodyPage() {
               <div key={m.id} className="card flex items-center justify-between p-3">
                 <div>
                   <p className="text-sm font-semibold">
-                    {m.weight_kg != null ? formatWeight(m.weight_kg, unit) : "—"}
+                    {m.weight_kg != null ? formatWeight(m.weight_kg, unit) : "–"}
                     {m.body_fat_pct != null && (
                       <span className="text-muted"> · {trim(m.body_fat_pct)}% bf</span>
                     )}
@@ -180,7 +180,7 @@ function hasMeasurements(m: BodyMetric): boolean {
 function TapeStat({ label, v }: { label: string; v: number | null }) {
   return (
     <div>
-      <p className="text-sm font-bold">{v != null ? trim(v) : "—"}</p>
+      <p className="text-sm font-bold">{v != null ? trim(v) : "–"}</p>
       <p className="text-[10px] uppercase tracking-wide text-muted">{label}</p>
     </div>
   );
@@ -267,7 +267,7 @@ function ProgressPhotos() {
           />
         </label>
       </div>
-      {err && <p className="text-xs" style={{ color: "var(--color-protein)" }}>{err}</p>}
+      {err && <p className="text-xs" style={{ color: "var(--color-danger-text)" }}>{err}</p>}
       {photos == null ? (
         <Spinner />
       ) : photos.length === 0 ? (
@@ -317,7 +317,7 @@ function ProgressPhotos() {
 }
 
 function pct(v: number | null): string {
-  return v == null ? "—" : `${trim(v)}%`;
+  return v == null ? "–" : `${trim(v)}%`;
 }
 
 function StatCard({ label, value, color }: { label: string; value: string; color: string }) {

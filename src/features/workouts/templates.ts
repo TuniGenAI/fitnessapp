@@ -30,7 +30,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
   {
     key: "ppl",
     name: "Push / Pull / Legs",
-    description: "6-day classic split — chest+shoulders+triceps, back+biceps, legs.",
+    description: "6-day classic split: chest+shoulders+triceps, back+biceps, legs.",
     days: [
       {
         name: "Push",
@@ -67,7 +67,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
   {
     key: "upper-lower",
     name: "Upper / Lower",
-    description: "4-day balanced split — great for steady strength + size.",
+    description: "4-day balanced split, great for steady strength + size.",
     days: [
       {
         name: "Upper",
@@ -96,7 +96,7 @@ export const PROGRAM_TEMPLATES: ProgramTemplate[] = [
   {
     key: "full-body",
     name: "Full Body",
-    description: "3-day full-body — ideal minimum-effective-dose for busy weeks.",
+    description: "3-day full-body, ideal minimum-effective-dose for busy weeks.",
     days: [
       {
         name: "Full Body A",

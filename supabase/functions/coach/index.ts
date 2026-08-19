@@ -77,6 +77,8 @@ function buildPlanPrompt(req: CoachRequest): string {
   lines.push(
     `Return ONLY JSON of the form {"intro": "<one short, motivating sentence for the whole session>", "exercises": [{"index": <number matching the input>, "weight": <number in ${unit}>, "reps": <number inside the target rep range>, "why": "<one concise sentence citing the real reps/weight and the progression logic>"}]}. Include one object per exercise, in the same order.`,
   );
+  // House style: the intro/why prose is shown in-app; never use em dashes.
+  lines.push("Style for intro and why: do not use em dashes. Use commas, periods, or parentheses instead.");
   return lines.join("\n");
 }
 
@@ -93,9 +95,11 @@ function buildPrompt(req: CoachRequest): string {
     );
   } else {
     lines.push(
-      "You are an upbeat, specific strength coach. React to the set just completed in ONE short sentence (no markdown, no emoji spam). Drive progressive overload using the ACTUAL numbers: if they fell short of the top of the rep range, nudge one more rep or a small load bump next set; if they hit or beat it, tell them to add load next time. Reference the real reps/weight — never generic filler like \"keep going\".",
+      "You are an upbeat, specific strength coach. React to the set just completed in ONE short sentence (no markdown, no emoji spam). Drive progressive overload using the ACTUAL numbers: if they fell short of the top of the rep range, nudge one more rep or a small load bump next set; if they hit or beat it, tell them to add load next time. Reference the real reps/weight, never generic filler like \"keep going\".",
     );
   }
+  // House style: never use em dashes in the reply (product-wide rule).
+  lines.push("Style: do not use em dashes anywhere. Use commas, periods, or parentheses instead.");
   if (req.dayName) lines.push(`Session: ${req.dayName}.`);
   if (req.goal) lines.push(`Goal: ${req.goal}.`);
   if (req.bodyweightKg) lines.push(`Bodyweight: ${req.bodyweightKg} kg.`);
@@ -112,7 +116,7 @@ function buildPrompt(req: CoachRequest): string {
   if (req.summary) lines.push(req.summary);
   if (req.history) {
     lines.push(
-      "Recent sessions (reference the trend — a stall, a streak, or steady progress — don't just repeat it):",
+      "Recent sessions (reference the trend, a stall, a streak, or steady progress, don't just repeat it):",
     );
     lines.push(req.history);
   }

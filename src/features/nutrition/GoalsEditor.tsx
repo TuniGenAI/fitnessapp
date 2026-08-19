@@ -74,8 +74,8 @@ export function GoalsEditor({ open, onClose }: { open: boolean; onClose: () => v
         ]}
       />
       {error && (
-        <p className="mt-3 text-xs" style={{ color: "var(--color-protein)" }}>
-          Couldn’t save: {error}
+        <p className="mt-3 text-xs" style={{ color: "var(--color-danger-text)" }}>
+          Couldn't save: {error}
         </p>
       )}
       <div className="mt-4">

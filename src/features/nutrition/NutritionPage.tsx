@@ -144,7 +144,7 @@ export function NutritionPage() {
 
           {/* AI coach — plan the meals still ahead (today only). On-tap only. */}
           {hasGoals && isToday && (
-            <Button variant="subtle" block onClick={() => setPlanning(true)} style={{ color: "var(--color-accent)" }}>
+            <Button variant="subtle" block onClick={() => setPlanning(true)} style={{ color: "var(--color-accent-text)" }}>
               <FlameIcon className="h-4 w-4" /> Plan the rest of my day
             </Button>
           )}
@@ -154,7 +154,7 @@ export function NutritionPage() {
             <div className="flex items-center justify-between">
               <h2
                 className="flex items-center gap-2 font-display text-lg font-bold tracking-tight"
-                style={{ color: "var(--color-accent)" }}
+                style={{ color: "var(--color-accent-text)" }}
               >
                 <DropletIcon className="h-4 w-4" style={{ color: "var(--color-water)" }} /> Water
               </h2>
@@ -207,7 +207,7 @@ export function NutritionPage() {
             <div className="flex items-center justify-between">
               <h2
                 className="font-display text-lg font-bold tracking-tight"
-                style={{ color: "var(--color-accent)" }}
+                style={{ color: "var(--color-accent-text)" }}
               >
                 Saved meals
               </h2>

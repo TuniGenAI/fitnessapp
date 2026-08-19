@@ -26,6 +26,18 @@
   --color-accent-strong: #d2e24a;
   --color-on-accent: #1a1a12; /* text/icons on a lime surface */
 
+  /* Readable-text variants of the identity accents. Lime and pink are
+     "black-text" FILL colors — as TEXT they only read on dark surfaces.
+     Use these tokens wherever lime/pink is applied as text so it stays on
+     identity in dark and flips to a legible tone on light paper (overrides
+     in :root.light below). Fills/rings keep the raw --color-accent/-protein. */
+  --color-accent-text: var(--color-accent); /* headings, accent labels */
+  --color-danger-text: var(--color-protein); /* destructive / error text */
+
+  /* Primary readable text (adapts by theme) — used in inline styles that
+     can't reach the body color, e.g. chart tooltips. */
+  --color-text: #ffffff;
+
   /* Macro ring colors (kept distinct + labeled) */
   --color-protein: #ff6ba3; /* pink */
   --color-carbs: #ffb020; /* amber */
@@ -68,6 +80,11 @@
   --color-surface-2: #eceaf3;
   --color-line: #e3e0ec;
   --color-muted: #6a6a73;
+  --color-text: #1c1c1e;
+  /* Lime/pink are unreadable as text on light paper — swap to legible,
+     on-brand tones (deep violet, deep rose). Fills stay lime/pink. */
+  --color-accent-text: #6f4fe8; /* = --color-brand-strong, reads on white */
+  --color-danger-text: #c2185b; /* deep rose, reads on white */
 }
 
 html,
@@ -154,7 +171,8 @@ html {
     transition: all 0.15s ease;
   }
 
-  /* Lime accent text (for section headings / card titles on dark). */
+  /* Lime accent text (section headings / card titles on dark). The readable
+     override lives unlayered below (it must beat Tailwind's utilities layer). */
   .text-accent {
     color: var(--color-accent);
   }
@@ -228,7 +246,16 @@ html {
   }
 }
 
-/* Headings: League Spartan is loose by default — tighten + weight it. */
+/* Accent-text readability override — UNLAYERED so it wins over Tailwind's
+   generated `.text-accent` utility (layered rules always lose to unlayered
+   ones, regardless of specificity). Resolves to lime on dark and deep violet
+   on light paper via --color-accent-text, so lime headings never sit
+   unreadably on white cards in light mode. */
+.text-accent {
+  color: var(--color-accent-text);
+}
+
+/* Headings: League Spartan is loose by default, tighten + weight it. */
 .font-display {
   font-feature-settings: "tnum" 1;
   letter-spacing: -0.005em;

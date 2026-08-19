@@ -66,6 +66,8 @@ export default function MacroTrends({
               borderRadius: 12,
               fontSize: 12,
             }}
+            labelStyle={{ color: "var(--color-text)", fontWeight: 700 }}
+            itemStyle={{ color: "var(--color-text)" }}
           />
           {target != null && target > 0 && (
             <ReferenceLine

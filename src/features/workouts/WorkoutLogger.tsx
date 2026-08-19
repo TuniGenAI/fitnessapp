@@ -318,7 +318,7 @@ export function WorkoutLogger({
           });
       }
     } catch {
-      flashToast("Couldn't log that set — check your connection and try again.");
+      flashToast("Couldn't log that set. Check your connection and try again.");
     } finally {
       setLoggingId(null);
     }
@@ -499,7 +499,7 @@ export function WorkoutLogger({
           <p className="text-sm leading-relaxed text-muted">
             You haven't logged any working sets this session, so there's nothing to
             record. Tap the green <span className="font-semibold">“Log set”</span> button
-            after each set — or finish anyway if you're done.
+            after each set, or finish anyway if you're done.
           </p>
           <div className="mt-4 flex gap-2">
             <Button block variant="subtle" onClick={() => setConfirmEmpty(false)}>
@@ -576,7 +576,7 @@ function CoachPlanPanel({
                 >
                   <span className="font-semibold">{nameById.get(p.exerciseId) ?? "Exercise"}</span>
                   <span className="mx-1.5 text-muted">→</span>
-                  <span className="font-bold" style={{ color: "var(--color-accent)" }}>
+                  <span className="font-bold" style={{ color: "var(--color-accent-text)" }}>
                     {formatWeight(p.weightKg, unit)} × {p.reps}
                   </span>
                   {p.why && <span className="mt-0.5 block text-xs text-muted">{p.why}</span>}
@@ -643,7 +643,7 @@ function RestTimer({
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between">
               <span className="text-xs font-semibold text-muted">
-                {done ? "Rest done — next set" : "Resting"}
+                {done ? "Rest done, next set" : "Resting"}
               </span>
               <span
                 className="font-display text-lg font-bold tabular-nums"
@@ -845,7 +845,7 @@ function ExerciseLogCard({
             <span className="font-bold" style={{ color: "var(--color-brand-soft)" }}>
               Suggested: {formatWeight(suggestion.weightKg, unit)} × {suggestion.reps}
             </span>{" "}
-            — {suggestion.reason}
+            · {suggestion.reason}
           </span>
         </div>
       )}

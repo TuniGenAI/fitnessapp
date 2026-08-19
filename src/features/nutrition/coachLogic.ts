@@ -73,13 +73,13 @@ export function fallbackPlan(remaining: Macros, timeHHmm: string): string {
   const cal = Math.max(0, Math.round(remaining.calories));
   const pro = Math.max(0, Math.round(remaining.protein_g));
   if (cal <= 50 && pro <= 5) {
-    return "You've basically hit your targets for today — nice work. If you're still hungry, keep it light: water, a piece of fruit, or some lbenna.";
+    return "You've basically hit your targets for today. Nice work. If you're still hungry, keep it light: water, a piece of fruit, or some lbenna.";
   }
   const meals = remainingMeals(timeHHmm);
   const perCal = Math.round(cal / meals.length);
   const perPro = Math.round(pro / meals.length);
   const lines = meals.map(
-    (m) => `${m.label}: ~${perCal} kcal / ~${perPro} g protein — ${STAPLES[m.key]}.`,
+    (m) => `${m.label}: ~${perCal} kcal / ~${perPro} g protein, ${STAPLES[m.key]}.`,
   );
   return (
     `You've got about ${cal} kcal and ${pro} g protein left. Here's a simple split for what's ahead:\n` +

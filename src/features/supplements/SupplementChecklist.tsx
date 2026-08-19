@@ -155,7 +155,7 @@ export function SupplementChecklist({
                         onClick={() => adjust(s.id, 1)}
                         aria-label={`One more ${s.name}`}
                         className="flex h-7 w-7 items-center justify-center rounded-lg"
-                        style={{ background: "var(--color-surface)", color: "var(--color-accent)" }}
+                        style={{ background: "var(--color-surface)", color: "var(--color-accent-text)" }}
                       >
                         <PlusIcon className="h-3.5 w-3.5" />
                       </button>

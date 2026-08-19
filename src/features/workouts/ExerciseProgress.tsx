@@ -114,6 +114,14 @@ function MuscleVolumeChart({ unit }: { unit: "kg" | "lb" }) {
       </p>
       <ResponsiveContainer width="100%" height={Math.max(140, data.length * 34)}>
         <BarChart data={data} layout="vertical" margin={{ top: 0, right: 12, bottom: 0, left: 8 }}>
+          <defs>
+            {/* Match the dashboard calorie bars: brand → lime, oriented along
+                the horizontal bars (left → right). */}
+            <linearGradient id="volGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="var(--color-brand)" />
+              <stop offset="100%" stopColor="var(--color-accent)" />
+            </linearGradient>
+          </defs>
           <XAxis type="number" hide />
           <YAxis
             type="category"
@@ -131,8 +139,10 @@ function MuscleVolumeChart({ unit }: { unit: "kg" | "lb" }) {
               borderRadius: 12,
               fontSize: 12,
             }}
+            labelStyle={{ color: "var(--color-text)", fontWeight: 700 }}
+            itemStyle={{ color: "var(--color-text)" }}
           />
-          <Bar dataKey="volume" fill="var(--color-brand)" radius={[0, 6, 6, 0]} name="Volume" />
+          <Bar dataKey="volume" fill="url(#volGrad)" radius={[0, 6, 6, 0]} name="Volume" />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -219,6 +229,7 @@ function ExerciseChart({
                   fontSize: 12,
                 }}
                 labelStyle={{ color: "var(--color-muted)" }}
+                itemStyle={{ color: "var(--color-text)" }}
               />
               <Line
                 type="monotone"
@@ -252,7 +263,7 @@ function ExerciseChart({
                 </p>
                 <p className="mt-1 text-sm font-bold">
                   {!pr
-                    ? "—"
+                    ? "–"
                     : type === "weight"
                       ? formatWeight(pr.value, unit)
                       : type === "reps"

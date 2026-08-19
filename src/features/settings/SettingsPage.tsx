@@ -60,7 +60,7 @@ export function SettingsPage() {
         <button
           onClick={signOut}
           className="mt-4 w-full rounded-xl py-2.5 text-sm font-semibold"
-          style={{ background: "var(--color-surface-2)", color: "var(--color-protein)" }}
+          style={{ background: "var(--color-surface-2)", color: "var(--color-danger-text)" }}
         >
           {demo ? "Exit demo (clears local data)" : "Sign out"}
         </button>
@@ -191,15 +191,15 @@ export function SettingsPage() {
         <div>
           <p className="mb-1.5 text-sm">Gemini API key</p>
           <p className="mb-2 text-xs text-muted">
-            Optional. Powers conversational briefings via a server-side edge function —
-            the key is stored on your profile and never sent to the browser. Without it,
+            Optional. Powers conversational briefings via a server-side edge function.
+            The key is stored on your profile and never sent to the browser. Without it,
             the coach uses smart rule-based guidance.
           </p>
           {hasKey && !savedKey ? (
             <div className="flex items-center gap-2">
               <span
                 className="flex-1 rounded-xl px-3 py-2.5 text-sm"
-                style={{ background: "var(--color-surface-2)", color: "var(--color-accent)" }}
+                style={{ background: "var(--color-surface-2)", color: "var(--color-accent-text)" }}
               >
                 Key saved ✓
               </span>
@@ -240,8 +240,8 @@ export function SettingsPage() {
             </div>
           )}
           {keyError && (
-            <p className="mt-2 text-xs" style={{ color: "var(--color-protein)" }}>
-              Couldn’t save: {keyError}
+            <p className="mt-2 text-xs" style={{ color: "var(--color-danger-text)" }}>
+              Couldn't save: {keyError}
             </p>
           )}
 
@@ -269,10 +269,10 @@ export function SettingsPage() {
                 className="mt-2 rounded-xl px-3 py-2.5 text-xs leading-relaxed"
                 style={{
                   background: "var(--color-surface-2)",
-                  color: testResult.ok ? "var(--color-accent)" : "var(--color-protein)",
+                  color: testResult.ok ? "var(--color-accent-text)" : "var(--color-danger-text)",
                 }}
               >
-                <span className="font-bold">{testResult.ok ? "✓ AI replied: " : "✕ AI didn’t fire: "}</span>
+                <span className="font-bold">{testResult.ok ? "✓ AI replied: " : "✕ AI didn't fire: "}</span>
                 {testResult.detail}
               </div>
             )}
@@ -284,7 +284,7 @@ export function SettingsPage() {
       <section className="card space-y-3 p-4">
         <h2 className="font-display text-base font-bold tracking-tight text-accent">Your data</h2>
         <p className="text-xs text-muted">
-          Download everything you've logged — workouts, food, body metrics, photos — as
+          Download everything you've logged (workouts, food, body metrics, photos) as
           a single JSON file. Your data, yours to keep.
         </p>
         <Button
@@ -307,7 +307,7 @@ export function SettingsPage() {
           {exporting ? "Preparing…" : "Export my data (JSON)"}
         </Button>
         {exportErr && (
-          <p className="text-xs" style={{ color: "var(--color-protein)" }}>
+          <p className="text-xs" style={{ color: "var(--color-danger-text)" }}>
             Export failed: {exportErr}
           </p>
         )}
@@ -322,7 +322,7 @@ export function SettingsPage() {
         </ul>
       </section>
 
-      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.16.0 · FitBody design</p>
+      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.16.1 · FitBody design</p>
     </div>
   );
 }

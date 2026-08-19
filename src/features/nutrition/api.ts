@@ -490,11 +490,11 @@ function aiErrorHint(err: string): string {
   const m = err.match(/gemini (\d+)/);
   const status = m ? Number(m[1]) : null;
   if (status === 400 || status === 403)
-    return `AI rejected the request (${err}). Your Gemini API key is likely invalid or missing the Generative Language API — re-paste a fresh key in Settings.`;
+    return `AI rejected the request (${err}). Your Gemini API key is likely invalid or missing the Generative Language API. Re-paste a fresh key in Settings.`;
   if (status === 429)
     return `AI is rate-limited / out of quota (${err}). Wait a bit or use a key with quota left.`;
   if (status === 404)
-    return `AI model not found (${err}). The model name is out of date — this needs a code fix.`;
+    return `AI model not found (${err}). The model name is out of date. This needs a code fix.`;
   return `AI couldn't process this (${err}). Try again, or log it manually.`;
 }
 
