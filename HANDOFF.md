@@ -34,7 +34,7 @@
 >   confirmation toast + Warm-up chip + nav, and the AI sentence gets **truncated** mid-phrase ("…now let us aim
 >   for"). Owner wants to **rework this UI** rather than patch it. The truncation is a display/UX issue (the
 >   `reaction` prompt asks for one short sentence; the toast likely clips it) — revisit as part of that rework.
-> - `npm run build` green. **Not yet committed/pushed at time of writing** (committed as the closing step).
+> - `npm run build` green. **Committed `ca55ade` and pushed to `main` → Vercel auto-deployed.**
 
 > **🎨 "FitBody" design-system restart (2026-08-18) — DEPLOYED (`1e32f38`, `3ed8bc3`).** The owner felt the
 > old **"Calm Athletic"** look was off (colors / typography / density) and asked to **fully match** the
