@@ -322,7 +322,7 @@ export function SettingsPage() {
         </ul>
       </section>
 
-      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.16.1 · FitBody design</p>
+      <p className="pt-2 text-center text-xs text-muted">{APP_NAME} · v0.16.2 · FitBody design</p>
     </div>
   );
 }

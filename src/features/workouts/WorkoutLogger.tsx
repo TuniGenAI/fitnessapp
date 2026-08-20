@@ -317,7 +317,11 @@ export function WorkoutLogger({
             /* keep the rule line */
           });
       }
-    } catch {
+    } catch (err) {
+      // logSet already retries the critical writes, so reaching here means every
+      // attempt failed. Log the real reason (the old bare `catch {}` swallowed
+      // it, leaving these failures undiagnosable).
+      console.error("logSet failed after retries", err);
       flashToast("Couldn't log that set. Check your connection and try again.");
     } finally {
       setLoggingId(null);
@@ -962,7 +966,7 @@ function ExerciseLogCard({
             setRpe(null);
           }}
         >
-          <CheckIcon className="h-4 w-4" /> {pending ? "Logging…" : `Log set ${trim(weight)}${unit} × ${reps}`}
+          <CheckIcon className="h-4 w-4" /> {pending ? "Logging…" : `Log set ${trim(weight)} ${unit} × ${reps}`}
         </Button>
       </div>
     </div>

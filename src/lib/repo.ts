@@ -65,6 +65,28 @@ export async function insertRow<T>(table: TableName, row: unknown): Promise<T> {
   return localDb.insert<never>(table, row as never) as T;
 }
 
+/**
+ * Insert or update one row, idempotent on its primary key, and return it. Pass a
+ * client-generated `id` so the same call run twice (e.g. via `retry` after a
+ * dropped response) collapses to one row instead of creating a duplicate.
+ */
+export async function upsertRow<T>(table: TableName, row: unknown): Promise<T> {
+  if (usingBackend()) {
+    const { data, error } = await supabase!
+      .from(table)
+      .upsert(row as never)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as T;
+  }
+  const r = row as { id?: string };
+  if (r.id && localDb.select<never>(table, { id: r.id } as never).length > 0) {
+    return localDb.update<never>(table, r.id, row as never) as T;
+  }
+  return localDb.insert<never>(table, row as never) as T;
+}
+
 /** Insert many rows and return them. */
 export async function insertRows<T>(table: TableName, rows: unknown[]): Promise<T[]> {
   if (rows.length === 0) return [];

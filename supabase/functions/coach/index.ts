@@ -77,8 +77,11 @@ function buildPlanPrompt(req: CoachRequest): string {
   lines.push(
     `Return ONLY JSON of the form {"intro": "<one short, motivating sentence for the whole session>", "exercises": [{"index": <number matching the input>, "weight": <number in ${unit}>, "reps": <number inside the target rep range>, "why": "<one concise sentence citing the real reps/weight and the progression logic>"}]}. Include one object per exercise, in the same order.`,
   );
-  // House style: the intro/why prose is shown in-app; never use em dashes.
-  lines.push("Style for intro and why: do not use em dashes. Use commas, periods, or parentheses instead.");
+  // House style: the intro/why prose is shown in-app; never use em dashes, and
+  // keep a casual coaching voice with contractions (see buildPrompt).
+  lines.push(
+    "Style for intro and why: do not use em dashes (use commas, periods, or parentheses instead). Keep a natural, casual coaching voice and ALWAYS use contractions (let's, you're, don't), never the formal \"let us\" or \"you are\".",
+  );
   return lines.join("\n");
 }
 
@@ -99,7 +102,11 @@ function buildPrompt(req: CoachRequest): string {
     );
   }
   // House style: never use em dashes in the reply (product-wide rule).
-  lines.push("Style: do not use em dashes anywhere. Use commas, periods, or parentheses instead.");
+  // Voice: talk like a real gym coach to a training partner — natural
+  // contractions ("let's", "you're", "don't"), never the stiff "let us"/"you are".
+  lines.push(
+    "Style: do not use em dashes anywhere (use commas, periods, or parentheses instead). Write in a natural, casual coaching voice and ALWAYS use contractions (let's, you're, don't, that's), never the formal \"let us\" or \"you are\".",
+  );
   if (req.dayName) lines.push(`Session: ${req.dayName}.`);
   if (req.goal) lines.push(`Goal: ${req.goal}.`);
   if (req.bodyweightKg) lines.push(`Bodyweight: ${req.bodyweightKg} kg.`);

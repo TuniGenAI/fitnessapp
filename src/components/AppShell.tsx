@@ -56,7 +56,7 @@ export function AppShell() {
               key={to}
               to={to}
               end={to === "/"}
-              className="group flex flex-1 flex-col items-center gap-1 py-3"
+              className="group flex flex-1 flex-col items-center gap-1 pb-2 pt-2.5"
             >
               {({ isActive }) => (
                 <>

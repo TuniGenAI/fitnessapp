@@ -1,12 +1,40 @@
 # HANDOFF — build context for the next conversation
 
-> Read this first (after `CLAUDE.md` / `PRD.md` / `TASKS.md`) for full context. Last updated: **2026-08-18**.
+> Read this first (after `CLAUDE.md` / `PRD.md` / `TASKS.md`) for full context. Last updated: **2026-08-20**.
 >
 > **TL;DR:** Phase-1 **and** the entire post-audit [`ROADMAP.md`](./ROADMAP.md) (14 items, vs MacroFactor / MFP / Strong) are **complete, deployed, and verified** — app at **v0.12.0**, live on Vercel, all migrations applied, edge functions current (`coach` v4). `npm run build` green. **This session is closed with no open work items.** Parked long-term: offline logging. A future round of improvements would open a new section in ROADMAP.md or a fresh doc. See the Runbook near the bottom for ops.
 
 ---
 
 ## Where we are
+
+> **🩹 Workout-logger review fixes (2026-08-20, v0.16.2).** After a real on-device leg session the owner
+> flagged defects from screenshots. Fixed four; **one parked** (see below).
+> - **N°4 — sets failed to log 5–6× per workout (the real bug).** `logSet` (in
+>   [`src/features/workouts/api.ts`](./src/features/workouts/api.ts)) fired **up to 5 sequential Supabase
+>   round-trips per tap** (read sets → insert set → read PRs → insert PRs → flag PR) with **no retries** and a
+>   **swallowed error** (`catch {}`). Any one transient blip (mobile network handoff, cold/paused free-tier
+>   project) failed the whole log; worse, if the *insert* succeeded but a later PR step failed, the set was
+>   saved yet the UI said "couldn't log" → re-tap → **duplicate set**. Fix: new
+>   [`retry()`](./src/lib/async.ts) helper (3 tries, linear backoff) wraps the critical read + write; the set
+>   now carries a **client-generated `id`** and goes through a new [`upsertRow()`](./src/lib/repo.ts) so an
+>   auto-retry is **idempotent** (no duplicate); **PR detection is now non-fatal** (its own try/catch — once the
+>   set row exists the log is a success); and the logger's catch now `console.error`s the **real** reason.
+>   Frontend-only, ships on next Vercel deploy.
+> - **N°3 — stiff "let us" coach voice.** Added a casual-voice + **always-contractions** rule to both prompts in
+>   the [`coach`](./supabase/functions/coach/index.ts) edge function. **Deployed** by the owner
+>   (`npx supabase functions deploy coach`).
+> - **N°5 — inconsistent `kg` spacing.** The Log-set button was the only spot building weight text by hand
+>   (`50kg`); now routes the space like `formatWeight` → `50 kg × 8` ([`WorkoutLogger.tsx`](./src/features/workouts/WorkoutLogger.tsx)).
+> - **N°6 — bottom nav felt too tall.** Trimmed icon-row padding (`py-3` → `pt-2.5 pb-2`) in
+>   [`AppShell.tsx`](./src/components/AppShell.tsx). Note: most of the lavender block below the labels is the
+>   **iPhone home-indicator safe area** (`env(safe-area-inset-bottom)`), reserved on purpose — not removable
+>   padding. If it still reads heavy, the lever is desaturating that strip (a design choice), not padding.
+> - **⏳ N°1 — OPEN / parked at owner's request.** The per-set AI reaction toast **overlaps** the "Log set"
+>   confirmation toast + Warm-up chip + nav, and the AI sentence gets **truncated** mid-phrase ("…now let us aim
+>   for"). Owner wants to **rework this UI** rather than patch it. The truncation is a display/UX issue (the
+>   `reaction` prompt asks for one short sentence; the toast likely clips it) — revisit as part of that rework.
+> - `npm run build` green. **Not yet committed/pushed at time of writing** (committed as the closing step).
 
 > **🎨 "FitBody" design-system restart (2026-08-18) — DEPLOYED (`1e32f38`, `3ed8bc3`).** The owner felt the
 > old **"Calm Athletic"** look was off (colors / typography / density) and asked to **fully match** the

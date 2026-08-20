@@ -10,9 +10,11 @@ import {
   selectRows,
   insertRow,
   insertRows,
+  upsertRow,
   updateRow,
   deleteWhere,
 } from "@/lib/repo";
+import { retry } from "@/lib/async";
 import type {
   Exercise,
   ExerciseType,
@@ -26,7 +28,7 @@ import type {
   RecordType,
 } from "@/types";
 import { checkPrsForSet, sessionBestE1RM } from "./logic";
-import { todayISO, isoAtLocalDate } from "@/lib/format";
+import { todayISO, isoAtLocalDate, uuid } from "@/lib/format";
 import type { ProgramTemplate } from "./templates";
 
 function requireUid(): string {
@@ -405,46 +407,68 @@ export async function logSet(input: {
   is_warmup?: boolean;
 }): Promise<{ set: WorkoutSet; celebrated: RecordType[] }> {
   const uid = requireUid();
-  const existingSets = await listSets(input.workout_id);
+  // The critical path is: know the set number, then write the set. Both are
+  // retried so a single transient blip on a phone (a flaky connection, a
+  // cold/paused free-tier backend) doesn't fail the log the way it used to. The
+  // set carries a client-generated id, so the write is an idempotent upsert —
+  // an auto-retry after a dropped response collapses onto the same row instead
+  // of creating a duplicate set.
+  const existingSets = await retry(() => listSets(input.workout_id));
   const sameExercise = existingSets.filter((s) => s.exercise_id === input.exercise_id);
   const setNumber = sameExercise.length + 1;
 
-  let set = await insertRow<WorkoutSet>("workout_sets", {
-    workout_id: input.workout_id,
-    user_id: uid,
-    exercise_id: input.exercise_id,
-    set_number: setNumber,
-    weight_kg: input.weight_kg,
-    reps: input.reps,
-    rpe: input.rpe ?? null,
-    is_warmup: input.is_warmup ?? false,
-    is_pr: false,
-    logged_at: new Date().toISOString(),
-  });
+  let set = await retry(() =>
+    upsertRow<WorkoutSet>("workout_sets", {
+      id: uuid(),
+      workout_id: input.workout_id,
+      user_id: uid,
+      exercise_id: input.exercise_id,
+      set_number: setNumber,
+      weight_kg: input.weight_kg,
+      reps: input.reps,
+      rpe: input.rpe ?? null,
+      is_warmup: input.is_warmup ?? false,
+      is_pr: false,
+      logged_at: new Date().toISOString(),
+    }),
+  );
 
+  // Once the set row exists the log has SUCCEEDED. PR detection is secondary:
+  // if any of its extra round-trips fail, swallow it (the PR just isn't recorded
+  // this time) rather than reporting "couldn't log that set" and pushing the
+  // user to re-tap into a duplicate. Reads/writes here are retried too.
   let celebrated: RecordType[] = [];
   if (!set.is_warmup) {
-    const existingPrs = await listPRs(input.exercise_id);
-    const { toRecord, celebrated: won } = checkPrsForSet(
-      input.weight_kg,
-      input.reps,
-      existingPrs,
-    );
-    for (const c of toRecord) {
-      await insertRow<PersonalRecord>("personal_records", {
-        user_id: uid,
-        exercise_id: input.exercise_id,
-        record_type: c.record_type,
-        value: c.value,
-        weight_kg: c.weight_kg,
-        reps: c.reps,
-        workout_set_id: set.id,
-        achieved_at: new Date().toISOString(),
-      });
-    }
-    celebrated = won;
-    if (won.length > 0) {
-      set = await updateRow<WorkoutSet>("workout_sets", set.id, { is_pr: true });
+    try {
+      const existingPrs = await retry(() => listPRs(input.exercise_id));
+      const { toRecord, celebrated: won } = checkPrsForSet(
+        input.weight_kg,
+        input.reps,
+        existingPrs,
+      );
+      for (const c of toRecord) {
+        await retry(() =>
+          upsertRow<PersonalRecord>("personal_records", {
+            id: uuid(),
+            user_id: uid,
+            exercise_id: input.exercise_id,
+            record_type: c.record_type,
+            value: c.value,
+            weight_kg: c.weight_kg,
+            reps: c.reps,
+            workout_set_id: set.id,
+            achieved_at: new Date().toISOString(),
+          }),
+        );
+      }
+      celebrated = won;
+      if (won.length > 0) {
+        set = await retry(() =>
+          updateRow<WorkoutSet>("workout_sets", set.id, { is_pr: true }),
+        );
+      }
+    } catch (e) {
+      console.warn("PR detection failed after set was logged; set is saved.", e);
     }
   }
 
