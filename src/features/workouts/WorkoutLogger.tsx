@@ -92,9 +92,12 @@ export function WorkoutLogger({
   // Which exercise is mid-log (locks the button so a double-tap can't create
   // duplicate sets while the insert is in flight).
   const [loggingId, setLoggingId] = useState<string | null>(null);
-  // Monotonic token so a late AI reaction from an earlier set can't overwrite a
-  // newer set's toast.
-  const reactionToken = useRef(0);
+  // Per-set coach reaction shown INLINE on each exercise card, keyed by
+  // exerciseId (the latest line replaces the previous one on that card).
+  const [reactions, setReactions] = useState<Record<string, string>>({});
+  // Per-exercise monotonic token so a late AI reaction from an earlier set on the
+  // same exercise can't overwrite the line from a newer set.
+  const reactionTokens = useRef<Record<string, number>>({});
   // Pre-workout AI plan (briefing + hybrid targets), keyed by exerciseId.
   const [plan, setPlan] = useState<StoredPlan | null>(null);
   const [planning, setPlanning] = useState(false);
@@ -280,24 +283,28 @@ export function WorkoutLogger({
         celebrate();
         flashToast(celebrated.map((c: RecordType) => `🏆 ${prTypeLabel(c)} PR!`).join("  "));
       } else if (coachEnabled && reactionsMode && !warmup) {
+        const exId = entry.exercise.id;
+        const token = (reactionTokens.current[exId] ?? 0) + 1;
+        reactionTokens.current[exId] = token;
         const lastBest = bestSet(entry.last);
         const beatLastTime = lastBest
           ? estimatedOneRepMax(weightKg, reps) > estimatedOneRepMax(lastBest.weight_kg, lastBest.reps)
           : false;
-        // Instant rule-based line so feedback never lags the tap…
-        flashToast(
-          reactionForSet({
+        // Instant rule-based line so feedback never lags the tap, shown inline on
+        // this exercise's card…
+        setReactions((prev) => ({
+          ...prev,
+          [exId]: reactionForSet({
             isPr: false,
             beatLastTime,
             reps,
             targetHigh: entry.target?.target_reps_high,
           }),
-        );
+        }));
         // …then upgrade to a specific AI reaction when it lands (full per-set AI
         // mode). Non-blocking; a slow call or a transient 503 just leaves the
-        // rule line in place. Guarded by a token so a stale reaction from an
-        // earlier set can't clobber a newer toast.
-        const token = ++reactionToken.current;
+        // rule line in place. Guarded by a per-exercise token so a stale reaction
+        // from an earlier set can't clobber a newer one.
         const targetTxt = entry.target
           ? `target ${entry.target.target_reps_low}–${entry.target.target_reps_high} reps`
           : "no set target";
@@ -311,7 +318,9 @@ export function WorkoutLogger({
         )} × ${reps}${rpeTxt} (${targetTxt}, ${lastTxt}). Coach toward progressive overload with the real numbers.`;
         getReaction(summary)
           .then((ai) => {
-            if (ai && token === reactionToken.current) flashToast(ai);
+            if (ai && reactionTokens.current[exId] === token) {
+              setReactions((prev) => ({ ...prev, [exId]: ai }));
+            }
           })
           .catch(() => {
             /* keep the rule line */
@@ -430,6 +439,7 @@ export function WorkoutLogger({
               entry={shown}
               unit={unit}
               pending={loggingId === e.exercise.id}
+              reaction={reactions[e.exercise.id] ?? null}
               onLog={(w, r, warm, rpe) => onLog(e, w, r, warm, rpe)}
               onDeleteSet={async (id) => {
                 // Optimistic remove — drop it from state immediately, reconcile
@@ -747,12 +757,15 @@ function ExerciseLogCard({
   entry,
   unit,
   pending,
+  reaction,
   onLog,
   onDeleteSet,
 }: {
   entry: Entry;
   unit: "kg" | "lb";
   pending: boolean;
+  /** Inline per-set coach line for THIS exercise (rule-based instantly, then AI). */
+  reaction: string | null;
   onLog: (weightKg: number, reps: number, warmup: boolean, rpe: number | null) => void;
   onDeleteSet: (id: string) => void;
 }) {
@@ -893,6 +906,26 @@ function ExerciseLogCard({
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Coach reaction — inline in the card (never a floating toast, so it can't
+          overlap the Log button / nav, and the full sentence wraps freely). */}
+      {reaction && (
+        <div
+          className="mt-3 flex items-start gap-2 rounded-xl px-3 py-2 text-xs leading-relaxed"
+          style={{ background: "var(--color-surface-2)" }}
+        >
+          <DumbbellIcon
+            className="mt-0.5 h-4 w-4 shrink-0"
+            style={{ color: "var(--color-brand-soft)" }}
+          />
+          <span>
+            <span className="font-bold" style={{ color: "var(--color-brand-soft)" }}>
+              Coach:
+            </span>{" "}
+            {reaction}
+          </span>
+        </div>
       )}
 
       {/* Input row */}

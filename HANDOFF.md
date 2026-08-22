@@ -8,6 +8,18 @@
 
 ## Where we are
 
+> **🩹 N°1 rework — inline per-set coach reaction (2026-08-20, v0.16.4).** The per-set reaction was a floating
+> `rounded-full` lime toast at `fixed bottom-24` that overlapped the Log-set button / Warm-up chip / nav and
+> squished a full sentence. Owner chose (via modal) to move it **inline into the exercise card**. Now
+> [`WorkoutLogger.tsx`](./src/features/workouts/WorkoutLogger.tsx) renders a `Coach:` line (brand-soft +
+> dumbbell icon, like the "Coach's plan" panel) **under the just-logged sets** of that card — flows with
+> content so it CANNOT overlap controls, wraps the full sentence with no clamp, and persists/updates in place
+> (per-exercise `reactions` state + per-exercise staleness token) instead of a 3.5s toast. The global toast is
+> kept only for PR celebrations + the transient log error. **Truncation test:** the inline block has no
+> height/line clamp, so if the coach line STILL cuts mid-sentence next on-device session, the truncation is
+> **server-side** (thinking model eating the token budget despite `thinkingBudget:0`) — next step is to log the
+> `coach` response `finishReason`. Frontend-only; build green. **This closes the parked N°1.**
+
 > **🩹 Plan-day sheet fixes (2026-08-20, v0.16.3).** Owner screenshotted the "Plan the rest of my day"
 > nutrition-coach sheet: (1) **same stiff "let us" voice** — that surface is the **`nutrition-coach`** edge
 > function, NOT touched in v0.16.2 (which only fixed `coach`); added the contractions/casual rule to its system
