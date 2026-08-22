@@ -71,6 +71,7 @@ function buildSystem(ctx: PlanContext): string {
     "- Give concrete foods with rough portions and an approximate protein/calorie figure per suggestion. Use their usual foods when they fit.",
     "- Keep it warm and brief: about 4 to 6 sentences. Light structure (one line per meal) is fine, but no markdown headings.",
     "- Do not use em dashes anywhere in your reply. Use commas, periods, or parentheses instead.",
+    "- Write in a natural, casual voice and ALWAYS use contractions (let's, you're, don't, that's, it's), never the formal \"let us\" or \"you are\".",
     "",
     "Their situation right now:",
     `- Local time: ${ctx.timeHHmm}`,

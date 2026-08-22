@@ -141,54 +141,66 @@ export function PlanDaySheet({
 
   return (
     <Sheet open={open} onClose={onClose} title="Plan the rest of my day">
-      {/* Gap summary — client-side, no AI. */}
-      <p className="mb-3 rounded-xl px-3 py-2 text-sm" style={{ background: "var(--color-surface-2)" }}>
-        <span className="text-muted">Left today: </span>
-        <span className="font-semibold">{gap(remaining.calories)} kcal</span>
-        {" · "}
-        <span className="font-semibold">{gap(remaining.protein_g)} g protein</span>
-        {" · "}
-        {gap(remaining.carbs_g)} g carbs · {gap(remaining.fat_g)} g fat
-      </p>
-
-      <div ref={scrollRef} className="max-h-[42vh] space-y-2 overflow-y-auto pr-1">
-        {messages.map((m, i) => (
-          <div
-            key={i}
-            className={`max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-sm ${
-              m.role === "user" ? "ml-auto" : ""
-            }`}
-            style={
-              m.role === "user"
-                ? { background: "var(--color-brand)", color: "#fff" }
-                : { background: "var(--color-surface-2)" }
-            }
-          >
-            {m.text}
-          </div>
-        ))}
-        {loading && <Spinner />}
-      </div>
-
-      {note && (
-        <p className="mt-2 text-xs" style={{ color: "var(--color-muted)" }}>
-          {note}
-        </p>
-      )}
-
-      <div className="mt-3 flex items-center gap-2">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && onSubmit()}
-          placeholder="Ask a follow-up (e.g. no chicken today)"
-          className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
+      {/* Fixed-height flex column: the message list is the only scroll region
+          (flex-1 + min-h-0 so it scrolls instead of clipping a long reply — the
+          old nested max-h-[42vh] inside the Sheet's own scroll swallowed touch
+          scroll and cut the coach's answer off). The input stays pinned. */}
+      <div className="flex h-[68vh] flex-col">
+        {/* Gap summary — client-side, no AI. */}
+        <p
+          className="mb-3 shrink-0 rounded-xl px-3 py-2 text-sm"
           style={{ background: "var(--color-surface-2)" }}
-          disabled={loading}
-        />
-        <Button onClick={onSubmit} disabled={loading || !input.trim()}>
-          Send
-        </Button>
+        >
+          <span className="text-muted">Left today: </span>
+          <span className="font-semibold">{gap(remaining.calories)} kcal</span>
+          {" · "}
+          <span className="font-semibold">{gap(remaining.protein_g)} g protein</span>
+          {" · "}
+          {gap(remaining.carbs_g)} g carbs · {gap(remaining.fat_g)} g fat
+        </p>
+
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1"
+        >
+          {messages.map((m, i) => (
+            <div
+              key={i}
+              className={`max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-sm ${
+                m.role === "user" ? "ml-auto" : ""
+              }`}
+              style={
+                m.role === "user"
+                  ? { background: "var(--color-brand)", color: "#fff" }
+                  : { background: "var(--color-surface-2)" }
+              }
+            >
+              {m.text}
+            </div>
+          ))}
+          {loading && <Spinner />}
+        </div>
+
+        {note && (
+          <p className="mt-2 shrink-0 text-xs" style={{ color: "var(--color-muted)" }}>
+            {note}
+          </p>
+        )}
+
+        <div className="mt-3 flex shrink-0 items-center gap-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onSubmit()}
+            placeholder="Ask a follow-up (e.g. no chicken today)"
+            className="min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm outline-none"
+            style={{ background: "var(--color-surface-2)" }}
+            disabled={loading}
+          />
+          <Button onClick={onSubmit} disabled={loading || !input.trim()}>
+            Send
+          </Button>
+        </div>
       </div>
     </Sheet>
   );

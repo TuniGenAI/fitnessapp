@@ -8,6 +8,21 @@
 
 ## Where we are
 
+> **🩹 Plan-day sheet fixes (2026-08-20, v0.16.3).** Owner screenshotted the "Plan the rest of my day"
+> nutrition-coach sheet: (1) **same stiff "let us" voice** — that surface is the **`nutrition-coach`** edge
+> function, NOT touched in v0.16.2 (which only fixed `coach`); added the contractions/casual rule to its system
+> prompt ([`supabase/functions/nutrition-coach/index.ts`](./supabase/functions/nutrition-coach/index.ts)) —
+> **needs `npx supabase functions deploy nutrition-coach`.** (2) **AI reply truncated + couldn't scroll** — a
+> layout bug, not the 768-token budget: the chat list was `max-h-[42vh] overflow-y-auto` nested inside the
+> Sheet's own `overflow-y-auto`, so touch scroll went to the outer sheet and the long reply clipped at the input
+> row. Rebuilt [`PlanDaySheet.tsx`](./src/features/nutrition/PlanDaySheet.tsx) as a fixed-height flex column
+> (`h-[68vh]`) with the message list `flex-1 min-h-0 overflow-y-auto` (the missing `min-h-0` is what lets a flex
+> child scroll instead of clip) and the input pinned — one scroll region. **⚠️ Watch:** the logger per-set
+> reaction *also* truncated mid-sentence; if this reply STILL stops mid-sentence when scrolled to the bottom,
+> the AI output is being cut server-side (thinking model eating the budget despite `thinkingBudget:0`) — next
+> step there is to log the response `finishReason`. Frontend fix ships on push; build green. This is related to
+> the still-**OPEN N°1** toast overlap/truncation (owner's UI rework).
+
 > **🩹 Workout-logger review fixes (2026-08-20, v0.16.2).** After a real on-device leg session the owner
 > flagged defects from screenshots. Fixed four; **one parked** (see below).
 > - **N°4 — sets failed to log 5–6× per workout (the real bug).** `logSet` (in
